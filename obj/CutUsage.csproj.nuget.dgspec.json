@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\GitRepo\\CutUsage\\CutUsage\\CutUsage.csproj": {}
+    "D:\\GitRepo\\CutLayUsage\\CutUsage.csproj": {}
   },
   "projects": {
-    "D:\\GitRepo\\CutUsage\\CutUsage\\CutUsage.csproj": {
+    "D:\\GitRepo\\CutLayUsage\\CutUsage.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\GitRepo\\CutUsage\\CutUsage\\CutUsage.csproj",
+        "projectUniqueName": "D:\\GitRepo\\CutLayUsage\\CutUsage.csproj",
         "projectName": "CutUsage",
-        "projectPath": "D:\\GitRepo\\CutUsage\\CutUsage\\CutUsage.csproj",
+        "projectPath": "D:\\GitRepo\\CutLayUsage\\CutUsage.csproj",
         "packagesPath": "C:\\Users\\sudheerar\\.nuget\\packages\\",
-        "outputPath": "D:\\GitRepo\\CutUsage\\CutUsage\\obj\\",
+        "outputPath": "D:\\GitRepo\\CutLayUsage\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\sudheerar\\AppData\\Roaming\\NuGet\\NuGet.Config",

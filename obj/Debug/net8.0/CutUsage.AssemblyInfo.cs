@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CutUsage")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9668684566bf52d62eae4a6255163a58c22b9217")]
 [assembly: System.Reflection.AssemblyProductAttribute("CutUsage")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CutUsage")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
