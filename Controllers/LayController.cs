@@ -106,7 +106,8 @@ namespace CutUsage.Controllers
             }
             else
             {
-                detail.SO = selected;
+                var parts = selected.Split('|');
+                detail.SO = parts[0];
                 detail.DocketNo = "";      // ← you can also pass empty if you prefer
             }
 
