@@ -1,0 +1,121 @@
+﻿@model CutUsage.ViewModels.DocketDetailsViewModel
+
+@{
+    ViewData["Title"] = "Docket Details";
+}
+
+<div class="container">
+    <h2>Details for Docket: @Model.Header.DocketNo</h2>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["SuccessMessage"]
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["ErrorMessage"]
+        </div>
+    }
+
+    <!-- Docket Header Details -->
+    <table class="table table-bordered">
+        <tr>
+            <th>Docket No</th>
+            <td>@Model.Header.DocketNo</td>
+            <th>SO</th>
+            <td>@Model.Header.SO</td>
+        </tr>
+        <tr>
+            <th>Prd Order</th>
+            <td>@Model.Header.PrdOrder</td>
+            <th>Customer Style</th>
+            <td>@Model.Header.CustomerStyle</td>
+        </tr>
+        <tr>
+            <th>FG Style</th>
+            <td>@Model.Header.FGStyle</td>
+            <th>FG Color</th>
+            <td>@Model.Header.FGColor</td>
+        </tr>
+        <tr>
+            <th>Qty</th>
+            <td>@Model.Header.Qty</td>
+            <th>Spec Width</th>
+            <td>@Model.Header.SpecWidth</td>
+        </tr>
+        <tr>
+            <th>BOM Usage</th>
+            <td>@Model.Header.BOMUsage</td>
+            <th>Marker Name</th>
+            <td>@Model.Header.MarkerName</td>
+        </tr>
+        <tr>
+            <th>Marker Width</th>
+            <td>@Model.Header.MarkerWidth</td>
+            <th>Marker Usage</th>
+            <td>@Model.Header.MarkerUsage</td>
+        </tr>
+        <tr>
+            <th>No Of Plys</th>
+            <td>@Model.Header.NoOfPlys</td>
+            <td colspan="2"></td>
+        </tr>
+    </table>
+
+
+
+
+    <!-- Usage Roles and Category Values -->
+    <h3>Enter Roll-Level Details</h3>
+    <form asp-action="SaveCatValues" method="post">
+        @Html.HiddenFor(m => m.Header.DocketNo)
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>SystemBatch</th>
+                    <th>Supplier</th>
+                    <th>Material</th>
+                    <th>Composition</th>
+                    <th>Qty</th>
+                    <th>Shade</th>
+                    <th>Damage / Unusable (Act-m)</th>
+                    <th>Overlap (Act-m)</th>
+                    <th>Roll Shortage (Act-m)</th>
+                    <th>Over length (Act-m)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.UsageRoles != null && Model.UsageRoles.Any())
+                {
+                    for (int i = 0; i < Model.UsageRoles.Count; i++)
+                    {
+                        <tr>
+                            @Html.HiddenFor(m => m.UsageRoles[i].DocketNo)
+                            @Html.HiddenFor(m => m.UsageRoles[i].SystemBatch)
+                            <td>@Html.DisplayFor(m => m.UsageRoles[i].SystemBatch)</td>
+                            <td>@Html.DisplayFor(m => m.UsageRoles[i].Supplier)</td>
+                            <td>@Html.DisplayFor(m => m.UsageRoles[i].Material)</td>
+                            <td>@Html.DisplayFor(m => m.UsageRoles[i].Composition)</td>
+                            <td>@Html.DisplayFor(m => m.UsageRoles[i].Qty)</td>
+                            <td>@Html.DisplayFor(m => m.UsageRoles[i].Shade)</td>
+                            <td>@Html.TextBoxFor(m => m.UsageRoles[i].Cat1Value, new { @class = "form-control" })</td>
+                            <td>@Html.TextBoxFor(m => m.UsageRoles[i].Cat2Value, new { @class = "form-control" })</td>
+                            <td>@Html.TextBoxFor(m => m.UsageRoles[i].Cat3Value, new { @class = "form-control" })</td>
+                            <td>@Html.TextBoxFor(m => m.UsageRoles[i].Cat4Value, new { @class = "form-control" })</td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="10">No Usage Role Records Found</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+</div>

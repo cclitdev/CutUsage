@@ -1,0 +1,86 @@
+﻿@model CutUsage.Models.LayMaster
+@using System.Linq
+
+@{
+    ViewData["Title"] = "Create Lay";
+
+    // safe casts with fallback
+    var markers = ViewData["Markers"] as IEnumerable<Marker> ?? Enumerable.Empty<Marker>();
+    var types = ViewData["Types"] as IEnumerable<LayType> ?? Enumerable.Empty<LayType>();
+    var tables = ViewData["Tables"] as IEnumerable<LayTable> ?? Enumerable.Empty<LayTable>();
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+
+    <!-- Marker dropdown -->
+    <div class="form-group">
+        <label for="MarkerId">Marker</label>
+        <select id="MarkerId" name="MarkerId" class="form-control">
+            <option value="">-- select Marker --</option>
+            @foreach (var m in markers)
+            {
+                if (m.MarkerId == Model.MarkerId)
+                {
+                    <option value="@m.MarkerId" selected="selected">@m.MarkerName</option>
+                }
+                else
+                {
+                    <option value="@m.MarkerId">@m.MarkerName</option>
+                }
+            }
+        </select>
+        <span asp-validation-for="MarkerId" class="text-danger"></span>
+    </div>
+
+    <!-- LayType dropdown -->
+    <div class="form-group">
+        <label for="LayType">Lay Type</label>
+        <select id="LayType" name="LayType" class="form-control">
+            <option value="">-- select Lay Type --</option>
+            @foreach (var t in types)
+            {
+                if (t.LayTypeId == Model.LayType)
+                {
+                    <option value="@t.LayTypeId" selected="selected">@t.LayTYpeName</option>
+                }
+                else
+                {
+                    <option value="@t.LayTypeId">@t.LayTYpeName</option>
+                }
+            }
+        </select>
+        <span asp-validation-for="LayType" class="text-danger"></span>
+    </div>
+
+    <!-- LayTable dropdown -->
+    <div class="form-group">
+        <label for="LayTable">Lay Table</label>
+        <select id="LayTable" name="LayTable" class="form-control">
+            <option value="">-- select Lay Table --</option>
+            @foreach (var lt in tables)
+            {
+                if (lt.LayTableId == Model.LayTable)
+                {
+                    <option value="@lt.LayTableId" selected="selected">@lt.LayTableName</option>
+                }
+                else
+                {
+                    <option value="@lt.LayTableId">@lt.LayTableName</option>
+                }
+            }
+        </select>
+        <span asp-validation-for="LayTable" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Create</button>
+    <a asp-action="Index" class="btn btn-link">Back</a>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

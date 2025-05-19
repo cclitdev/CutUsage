@@ -1,0 +1,47 @@
+﻿@model CutUsage.Models.Marker
+@{
+    var isEdit = Model.MarkerId != 0;
+    var formAction = isEdit ? "Edit" : "Create";
+    ViewData["Title"] = isEdit ? "Edit Marker" : "Create Marker";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="@formAction" method="post">
+    @if (isEdit)
+    {
+        <input type="hidden" asp-for="MarkerId" />
+    }
+
+    <div class="form-group">
+        <label asp-for="MarkerName"></label>
+        <input asp-for="MarkerName" class="form-control" />
+        <span asp-validation-for="MarkerName" class="text-danger"></span>
+    </div>
+    <div class="form-group">
+        <label asp-for="MarkerWidth"></label>
+        <input asp-for="MarkerWidth" class="form-control" />
+        <span asp-validation-for="MarkerWidth" class="text-danger"></span>
+    </div>
+    <div class="form-group">
+        <label asp-for="MarkerLength"></label>
+        <input asp-for="MarkerLength" class="form-control" />
+        <span asp-validation-for="MarkerLength" class="text-danger"></span>
+    </div>
+    <div class="form-group">
+        <label asp-for="MarkerUsage"></label>
+        <input asp-for="MarkerUsage" class="form-control" />
+        <span asp-validation-for="MarkerUsage" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-success">
+        @(isEdit ? "Save Changes" : "Create")
+    </button>
+    <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

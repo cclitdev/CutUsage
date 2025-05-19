@@ -1,0 +1,123 @@
+﻿@model CutUsage.Models.LayRollDetailsViewModel
+@{
+    ViewData["Title"] = $"Lay Details — Lay {Model.Header.LayID}";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<!-- HEADER (read-only) -->
+<table class="table table-bordered mb-4">
+    <tr>
+        <th>Lay ID</th>
+        <td>@Model.Header.LayID</td>
+        <th>SO</th>
+        <td>@Model.Header.SO</td>
+    </tr>
+    <tr>
+        <th>Marker</th>
+        <td>@Model.Header.MarkerName</td>
+        <th>Lay Type</th>
+        <td>@Model.Header.LayTypeName</td>
+    </tr>
+    <tr>
+        <th>Lay Table</th>
+        <td>@Model.Header.LayTableName</td>
+        <th>FG Style</th>
+        <td>@Model.Header.FGStyle</td>
+    </tr>
+    <tr>
+        <th>FG Color</th>
+        <td>@Model.Header.FGColor</td>
+        <th>Marker Usage</th>
+        <td>@Model.Header.MarkerUsage</td>
+    </tr>
+</table>
+
+<!-- EDITABLE ROLL GRID -->
+<h3>Enter Roll-Level Details</h3>
+<form asp-action="SaveRollDetails" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Header.LayID" />
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Roll No</th>
+                <th>Material Code</th>
+                <th>Description</th>
+                <th>Shade</th>
+                <th>Length</th>
+                <th>Vendor</th>
+                <th>Vendor Batch</th>
+                <th>System Batch</th>
+                <th>No Of Plys</th>
+                <th>Part Ply</th>
+                <th>Damage (Act-m)</th>
+                <th>Overlap (Act-m)</th>
+                <th>Roll Shortage (Act-m)</th>
+                <th>Over length (Act-m)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (int i = 0; i < Model.Details.Count; i++)
+            {
+                <tr>
+                    <td>
+                        @Model.Details[i].RollNo
+                        <input type="hidden" asp-for="Details[i].RollNo" />
+                    </td>
+                    <td>@Model.Details[i].MaterialCode</td>
+                    <td>@Model.Details[i].MaterialDescription</td>
+                    <td>@Model.Details[i].Shade</td>
+                    <td>@Model.Details[i].Length</td>
+                    <td>@Model.Details[i].VendorCode</td>
+                    <td>@Model.Details[i].VendorBatch</td>
+                    <td>@Model.Details[i].SAPBatchNo</td>
+
+                    <!-- NEW columns with tag-helpers -->
+                    <td>
+                        <input asp-for="Details[i].NoOfPlys"
+                               class="form-control"
+                               placeholder="0" />
+                    </td>
+                    <td>
+                        <input asp-for="Details[i].PartPly"
+                               class="form-control"
+                               placeholder="0" />
+                    </td>
+
+                    <!-- your existing four category inputs -->
+                    <td>
+                        <input asp-for="Details[i].Cat1Value"
+                               class="form-control"
+                               placeholder="0.00" />
+                    </td>
+                    <td>
+                        <input asp-for="Details[i].Cat2Value"
+                               class="form-control"
+                               placeholder="0.00" />
+                    </td>
+                    <td>
+                        <input asp-for="Details[i].Cat3Value"
+                               class="form-control"
+                               placeholder="0.00" />
+                    </td>
+                    <td>
+                        <input asp-for="Details[i].Cat4Value"
+                               class="form-control"
+                               placeholder="0.00" />
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a asp-action="Index" class="btn btn-secondary">Back to Lays</a>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

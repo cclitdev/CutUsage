@@ -1,0 +1,44 @@
+﻿@model CutUsage.Models.LayMaster
+@using System.Linq
+
+@{
+    ViewData["Title"] = "Assign Docket — Lay " + Model.LayID;
+    var dockets = ViewData["Dockets"] as IEnumerable<CutUsage.Models.DocketLookup>
+               ?? Enumerable.Empty<CutUsage.Models.DocketLookup>();
+}
+
+<h2>
+    @ViewData["Title"]
+    <small class="text-muted">(Marker: @ViewBag.MarkerName)</small>
+</h2>
+
+<form asp-action="Assign" method="post" class="mt-4">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="layID" value="@Model.LayID" />
+
+    <div class="form-group">
+        <label>Select Docket</label>
+        <select name="selected" class="form-control" required>
+            <option value="">-- select --</option>
+            @foreach (var x in dockets)
+            {
+                // pack both values into the option value, pipe‐separated
+                var optionValue = $"{x.DocketNo}|{x.SO}";
+                <option value="@optionValue">
+                    @($"{x.DocketNo} / {x.SO}")
+                </option>
+            }
+        </select>
+        @Html.ValidationMessage("selected", "", new { @class = "text-danger" })
+
+    </div>
+
+    <button type="submit" class="btn btn-primary">Assign</button>
+    <a asp-action="Details" asp-route-id="@Model.LayID" class="btn btn-link">Cancel</a>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

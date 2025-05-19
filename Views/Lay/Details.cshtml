@@ -1,0 +1,48 @@
+﻿@model CutUsage.Models.LayMaster
+@using System.Linq
+
+@{
+    ViewData["Title"] = "Lay Details";
+    var details = ViewBag.Details as IEnumerable<CutUsage.Models.LayDetail>
+                  ?? Enumerable.Empty<CutUsage.Models.LayDetail>();
+}
+
+<h2>
+    @ViewData["Title"] — @Model.LayID
+    <small class="text-muted">(Marker: @ViewBag.MarkerName)</small>
+</h2>
+
+<!-- Your existing Save Times form goes here... -->
+
+<h4>Assigned @(Model.LayType == 1 ? "Dockets" : "SOs")</h4>
+<table class="table table-bordered">
+    <thead>
+        <tr><th>SO</th><th>Docket No</th><th></th></tr>
+    </thead>
+    <tbody>
+        @foreach (var d in details)
+        {
+            <tr>
+                <td>@d.SO</td>
+                <td>@d.DocketNo</td>
+                <td>
+                    <form asp-action="DeleteDetail" method="post">
+                        @Html.AntiForgeryToken()
+                        <input name="layID" type="hidden" value="@d.LayID" />
+                        <input name="so" type="hidden" value="@d.SO" />
+                        <input name="docketNo" type="hidden" value="@d.DocketNo" />
+                        <button class="btn btn-sm btn-danger">×</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<p>
+    <a asp-action="Assign" asp-route-id="@Model.LayID" class="btn btn-success">
+        Assign @(Model.LayType == 1 ? "Docket" : "SO")
+    </a>
+</p>
+
+<p><a asp-action="Index" class="btn btn-secondary">Back to List</a></p>

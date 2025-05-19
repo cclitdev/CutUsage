@@ -1,0 +1,40 @@
+﻿@model IEnumerable<CutUsage.Models.LayMaster>
+
+@{
+    ViewData["Title"] = "All Lays";
+}
+
+<h2>@ViewData["Title"]</h2>
+<p><a asp-action="Create" class="btn btn-primary">New Lay</a></p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>LayID</th>
+            <th>Marker</th>
+            <th>Type</th>
+            <th>Table</th>
+            <th>Date</th>
+            <th>Start</th>
+            <th>Complete</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var m in Model)
+        {
+            <tr>
+                <td>@m.LayID</td>
+                <td>@m.MarkerName</td>
+                <td>@m.LayTypeName</td>
+                <td>@m.LayTableName</td>
+                <td>@m.LayDate?.ToShortDateString()</td>
+                <td>@m.LayStartTime</td>
+                <td>@m.LayCompleteTime</td>
+                <td>
+                    <a asp-action="Details" asp-route-id="@m.LayID">Details</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

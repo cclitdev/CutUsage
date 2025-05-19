@@ -1,0 +1,23 @@
+﻿@{
+    ViewData["Title"] = "Select Bulk Lay";
+    // pull the SelectList we stored in ViewBag
+    var layList = ViewBag.LayList as SelectList
+                  ?? new SelectList(Enumerable.Empty<object>());
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-action="SelectLay" method="post">
+    @Html.AntiForgeryToken()
+
+    <div class="form-group">
+        <label for="layId">Lay</label>
+        <select id="layId" name="layId" class="form-control" asp-items="layList">
+            <option value="">-- select --</option>
+        </select>
+        <span class="text-danger">@Html.ValidationMessage("layId")</span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Go</button>
+    <a asp-controller="Lay" asp-action="Index" class="btn btn-link">Cancel</a>
+</form>

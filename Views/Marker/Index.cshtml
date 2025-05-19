@@ -1,0 +1,36 @@
+﻿@model IEnumerable<CutUsage.Models.Marker>
+@{
+    ViewData["Title"] = "Markers";
+}
+
+<h2>Markers</h2>
+<p>
+    <a asp-action="Create" class="btn btn-primary">Add New Marker</a>
+</p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Width</th>
+            <th>Length</th>
+            <th>Usage</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var m in Model)
+        {
+            <tr>
+                <td>@m.MarkerName</td>
+                <td>@m.MarkerWidth</td>
+                <td>@m.MarkerLength</td>
+                <td>@m.MarkerUsage</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@m.MarkerId">Edit</a> |
+                    <a asp-action="Delete" asp-route-id="@m.MarkerId">Delete</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

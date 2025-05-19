@@ -1,0 +1,15 @@
+﻿@* Views/Docket/SelectDocket.cshtml *@
+@{
+    ViewData["Title"] = "Select Docket";
+}
+
+<div class="container">
+    <h2>Select Docket</h2>
+    <form asp-action="SelectDocket" method="post">
+        <div class="mb-3">
+            <label for="docketNo" class="form-label">Docket Number</label>
+            <input type="text" class="form-control" name="docketNo" required />
+        </div>
+        <button type="submit" class="btn btn-primary">Get Details</button>
+    </form>
+</div>
