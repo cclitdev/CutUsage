@@ -1,6 +1,7 @@
 ﻿@model CutUsage.Models.Marker
+
 @{
-    var isEdit = Model.MarkerId != 0;
+    var isEdit = Model.MarkerId != "-1"; // Check for edit vs create based on -1
     var formAction = isEdit ? "Edit" : "Create";
     ViewData["Title"] = isEdit ? "Edit Marker" : "Create Marker";
 }
@@ -18,19 +19,22 @@
         <input asp-for="MarkerName" class="form-control" />
         <span asp-validation-for="MarkerName" class="text-danger"></span>
     </div>
+
     <div class="form-group">
         <label asp-for="MarkerWidth"></label>
-        <input asp-for="MarkerWidth" class="form-control" />
+        <input asp-for="MarkerWidth" class="form-control" type="number" step="0.01" />
         <span asp-validation-for="MarkerWidth" class="text-danger"></span>
     </div>
+
     <div class="form-group">
         <label asp-for="MarkerLength"></label>
-        <input asp-for="MarkerLength" class="form-control" />
+        <input asp-for="MarkerLength" class="form-control" type="number" step="0.01" />
         <span asp-validation-for="MarkerLength" class="text-danger"></span>
     </div>
+
     <div class="form-group">
         <label asp-for="MarkerUsage"></label>
-        <input asp-for="MarkerUsage" class="form-control" />
+        <input asp-for="MarkerUsage" class="form-control" type="number" step="0.01" />
         <span asp-validation-for="MarkerUsage" class="text-danger"></span>
     </div>
 

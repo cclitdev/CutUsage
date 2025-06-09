@@ -47,13 +47,31 @@ namespace CutUsage
                 });
             return list;
         }
+        public async Task<List<StyleM>> GetAllStyles()
+        {
+            var list = new List<StyleM>();
+            using var conn = new SqlConnection(_conn);
+            using var cmd = new SqlCommand("spCutUsage_GetAllStyles", conn) { CommandType = CommandType.StoredProcedure };
+            await conn.OpenAsync();
+            using var rdr = await cmd.ExecuteReaderAsync();
+            while (await rdr.ReadAsync())
+            {
+                list.Add(new StyleM
+                {
+                    Style = rdr["Style"].ToString(),
+                    FGStyle = rdr["FGStyle"].ToString()
+                });
+            }
+            return list;
+        }
 
-        public async Task<List<DocketLookup>> GetDocketsAsync(int layType)
+        public async Task<List<DocketLookup>> GetDocketsAsync(int layType,string style)
         {
             var list = new List<DocketLookup>();
             using var conn = new SqlConnection(_conn);
-            using var cmd = new SqlCommand("spCutUsage_GetDocketsByLayType", conn) { CommandType = CommandType.StoredProcedure };
+            using var cmd = new SqlCommand("spCutUsage_GetDocketsByLayTypeAndStyle", conn) { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@LayType", layType);
+            cmd.Parameters.AddWithValue("@Style", style);
             await conn.OpenAsync();
             using var rdr = await cmd.ExecuteReaderAsync();
             while (await rdr.ReadAsync())
@@ -83,7 +101,8 @@ namespace CutUsage
                 list.Add(new LayMaster
                 {
                     LayID = (int)rdr["LayID"],
-                    MarkerId = (int)rdr["MarkerId"],
+                    Style = rdr["Style"].ToString(),
+                    MarkerId = rdr["MarkerId"].ToString(),
                     LayType = (int)rdr["LayType"],
                     LayTable = (int)rdr["LayTable"],
                     LayDate = rdr["LayDate"] as DateTime?,
@@ -111,7 +130,9 @@ namespace CutUsage
                 m = new LayMaster
                 {
                     LayID = id,
-                    MarkerId = (int)rdr["MarkerId"],
+                    MarkerId = rdr["MarkerId"].ToString(),
+                    MarkerName = rdr["MarkerName"].ToString(), 
+                    Style = rdr["Style"].ToString(),
                     LayType = (int)rdr["LayType"],
                     LayTable = (int)rdr["LayTable"],
                     LayDate = rdr["LayDate"] as DateTime?,
@@ -128,6 +149,7 @@ namespace CutUsage
             cmd.Parameters.AddWithValue("@MarkerId", m.MarkerId);
             cmd.Parameters.AddWithValue("@LayType", m.LayType);
             cmd.Parameters.AddWithValue("@LayTable", m.LayTable);
+            cmd.Parameters.AddWithValue("@Style", m.Style);
             await conn.OpenAsync();
             var newId = await cmd.ExecuteScalarAsync();
             return Convert.ToInt32(newId);
@@ -159,6 +181,7 @@ namespace CutUsage
                 list.Add(new LayDetail
                 {
                     LayID = (int)rdr["LayID"],
+                    
                     SO = rdr["SO"].ToString(),
                     DocketNo = rdr["DocketNo"].ToString()
                 });
@@ -187,75 +210,146 @@ namespace CutUsage
             await cmd.ExecuteNonQueryAsync();
         }
 
+        // LayRepository.cs
+        public async Task<string> UpsertCutUsageValuesAsync(LayRollDetailsViewModel vm)
+        {
+            string lastMessage = null!;
+            using var conn = new SqlConnection(_conn);
+            await conn.OpenAsync();
+
+            using var tx = conn.BeginTransaction();
+            try
+            {
+                foreach (var detail in vm.Details)
+                {
+                    using var cmd = new SqlCommand("spCutUsage_UpdateInsertValue", conn, tx)
+                    {
+                        CommandType = CommandType.StoredProcedure
+                    };
+
+                    cmd.Parameters.AddWithValue("@LayId", vm.Header.LayID);
+                    cmd.Parameters.AddWithValue("@MarkerId", vm.Header.MarkerId);
+                    cmd.Parameters.AddWithValue("@RollID", detail.SAPBatchNo);
+
+                    cmd.Parameters.AddWithValue("@NoOfPlys", (object?)detail.NoOfPlys ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@PartPly", (object?)detail.PartPly ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@BindingQty", (object?)detail.BindingQty ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@LayedQty", (object?)detail.LayedQty ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@Cat1Value", (object?)detail.Cat1Value ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@Cat2Value", (object?)detail.Cat2Value ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@Cat3Value", (object?)detail.Cat3Value ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@Cat4Value", (object?)detail.Cat4Value ?? DBNull.Value);
+
+                    // OUTPUT params
+                    var pSuccess = new SqlParameter("@Success", SqlDbType.Bit) { Direction = ParameterDirection.Output };
+                    var pMsg = new SqlParameter("@Message", SqlDbType.NVarChar, 500) { Direction = ParameterDirection.Output };
+                    cmd.Parameters.Add(pSuccess);
+                    cmd.Parameters.Add(pMsg);
+
+                    await cmd.ExecuteNonQueryAsync();
+
+                    var ok = (bool)pSuccess.Value!;
+                    var msg = (string)pMsg.Value!;
+                    if (!ok)
+                        throw new InvalidOperationException(msg);
+
+                    lastMessage = msg;
+                }
+
+                tx.Commit();
+                return lastMessage!;
+            }
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
+        }
+
+
+
         public async Task<LayRollDetailsViewModel> GetLayRollDetailsAsync(int layID)
         {
             var vm = new LayRollDetailsViewModel();
 
             using var conn = new SqlConnection(_conn);
-            using var cmd = new SqlCommand("spCutUsage_GetLayRollDetails", conn)
+            await conn.OpenAsync();
+
+            // — first proc: header + roll details —
+            using (var cmd = new SqlCommand("spCutUsage_GetLayRollDetails", conn)
             {
                 CommandType = CommandType.StoredProcedure
-            };
-            cmd.Parameters.AddWithValue("@LayID", layID);
-
-            await conn.OpenAsync();
-            using var rdr = await cmd.ExecuteReaderAsync();
-
-            while (await rdr.ReadAsync())
+            })
             {
-                // Populate header once
-                if (vm.Header.LayID == 0)
+                cmd.Parameters.AddWithValue("@LayID", layID);
+                using var rdr = await cmd.ExecuteReaderAsync();
+                while (await rdr.ReadAsync())
                 {
-                    vm.Header = new LayRollHeader
+                    if (vm.Header.LayID == 0)
                     {
-                        LayID = (int)rdr["LayID"],
-                        MarkerId = (int)rdr["MarkerId"],
-                        LayTypeName = rdr["LayTYpeName"].ToString()!,
-                        LayTableName = rdr["LayTableName"].ToString()!,
-                        SO = rdr["SO"].ToString()!,
-                        MarkerName = rdr["MarkerName"].ToString()!,
+                        vm.Header = new LayRollHeader
+                        {
+                            LayID = int.Parse(rdr["LayID"].ToString()!),
+                            MarkerId = int.Parse(rdr["MarkerId"].ToString()!),
+                            LayTypeName = rdr["LayTYpeName"].ToString()!,
+                            LayTableName = rdr["LayTableName"].ToString()!,
+                            SO = rdr["SO"].ToString()!,       // still kept if you like
+                            MarkerName = rdr["MarkerName"].ToString()!,
 
-                        // These fields may be INT or DECIMAL in SQL:
-                        MarkerWidth = Convert.ToDecimal(rdr["MarkerWidth"]),
-                        MarkerLength = Convert.ToDecimal(rdr["MarkerLength"]),
-                        MarkerUsage = Convert.ToDecimal(rdr["MarkerUsage"]),
+                            MarkerWidth = Convert.ToDecimal(rdr["MarkerWidth"]),
+                            MarkerLength = Convert.ToDecimal(rdr["MarkerLength"]),
+                            MarkerUsage = Convert.ToDecimal(rdr["MarkerUsage"]),
 
-                        FGStyle = rdr["FGStyle"].ToString()!,
-                        FGColor = rdr["FGColor"].ToString()!
-                    };
+                            FGStyle = rdr["FGStyle"].ToString()!,
+                            FGColor = rdr["FGColor"].ToString()!
+                        };
+                    }
+
+                    vm.Details.Add(new LayRollDetail
+                    {
+                        MaterialCode = rdr["MaterialCode"].ToString()!,
+                        VendorCode = rdr["VendorCode"].ToString()!,
+                        VendorBatch = rdr["VendorBatch"].ToString()!,
+                        SAPBatchNo = rdr["SAPBatchNo"].ToString()!,
+                        RollNo = rdr["RollNo"].ToString()!,
+                        Shade = rdr["Shade"].ToString()!,
+                        MaterialDescription = rdr["MaterialDescription"].ToString()!,
+
+                        Length = Convert.ToDecimal(rdr["Length"]),
+                        NoOfPlys = rdr["NoOfPlys"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["NoOfPlys"]),
+                        PartPly = rdr["PartPly"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["PartPly"]),
+                        BindingQty = rdr["BindingQty"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["BindingQty"]),
+                        LayedQty = rdr["LayedQty"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["LayedQty"]),
+
+                        Cat1Value = rdr["Cat1Value"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["Cat1Value"]),
+                        Cat2Value = rdr["Cat2Value"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["Cat2Value"]),
+                        Cat3Value = rdr["Cat3Value"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["Cat3Value"]),
+                        Cat4Value = rdr["Cat4Value"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["Cat4Value"])
+                    });
                 }
+            }
 
-                // Populate each detail row
-                var detail = new LayRollDetail
+            // — second proc: docket & SO list —
+            using (var cmd2 = new SqlCommand("spCutUsage_GetLayDocketAndSODetails", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            })
+            {
+                cmd2.Parameters.AddWithValue("@LayID", layID);
+                using var rdr2 = await cmd2.ExecuteReaderAsync();
+                while (await rdr2.ReadAsync())
                 {
-                    MaterialCode = rdr["MaterialCode"].ToString()!,
-                    VendorCode = rdr["VendorCode"].ToString()!,
-                    VendorBatch = rdr["VendorBatch"].ToString()!,
-                    SAPBatchNo = rdr["SAPBatchNo"].ToString()!,
-                    RollNo = rdr["RollNo"].ToString()!,
-                    Shade = rdr["Shade"].ToString()!,
-                    MaterialDescription = rdr["MaterialDescription"].ToString()!,
-
-                    // Convert length (INT or DECIMAL) to decimal
-                    Length = Convert.ToDecimal(rdr["Length"]),
-
-                    // The value columns might be NULL, so check first
-                    NoOfPlys = rdr["NoOfPlys"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["NoOfPlys"]),
-                    PartPly = rdr["PartPly"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["PartPly"]),
-                    BindingQty = rdr["BindingQty"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["BindingQty"]),
-
-                    Cat1Value = rdr["Cat1Value"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["Cat1Value"]),
-                    Cat2Value = rdr["Cat2Value"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["Cat2Value"]),
-                    Cat3Value = rdr["Cat3Value"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["Cat3Value"]),
-                    Cat4Value = rdr["Cat4Value"] == DBNull.Value ? null : (decimal?)Convert.ToDecimal(rdr["Cat4Value"])
-                };
-
-                vm.Details.Add(detail);
+                    vm.DocketDetails.Add(new LayDocketSo
+                    {
+                        LayID = Convert.ToInt32(rdr2["LayID"]),
+                        DocketNo = rdr2["DocketNo"].ToString()!,
+                        SO = rdr2["SO"].ToString()!
+                    });
+                }
             }
 
             return vm;
         }
-
 
     }
 }

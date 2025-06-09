@@ -13,6 +13,7 @@
         public decimal? NoOfPlys { get; set; }
         public decimal? PartPly { get; set; }
         public decimal? BindingQty { get; set; }
+        public decimal? LayedQty { get; set; }
         public decimal? Cat1Value { get; set; }
         public decimal? Cat2Value { get; set; }
         public decimal? Cat3Value { get; set; }

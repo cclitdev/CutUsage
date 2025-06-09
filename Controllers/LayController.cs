@@ -20,6 +20,7 @@ namespace CutUsage.Controllers
         public async Task<IActionResult> Create()
         {
             // Load raw lists into ViewData
+            ViewData["Styles"] = await _layRepo.GetAllStyles();
             ViewData["Markers"] = await _markerRepo.GetAllAsync();
             ViewData["Types"] = await _layRepo.GetLayTypesAsync();
             ViewData["Tables"] = await _layRepo.GetLayTablesAsync();
@@ -62,7 +63,7 @@ namespace CutUsage.Controllers
             ViewBag.Markers = await _markerRepo.GetAllAsync();
             ViewBag.Types = await _layRepo.GetLayTypesAsync();
             ViewBag.Tables = await _layRepo.GetLayTablesAsync();
-            ViewBag.Dockets = await _layRepo.GetDocketsAsync(master.LayType);
+            ViewBag.Dockets = await _layRepo.GetDocketsAsync(master.LayType,master.Style);
             ViewBag.Details = await _layRepo.GetLayDetailsAsync(id);
 
             return View(master);
@@ -82,7 +83,7 @@ namespace CutUsage.Controllers
                 ?? "(unknown)";
 
             // Only need Dockets here
-            ViewData["Dockets"] = await _layRepo.GetDocketsAsync(master.LayType);
+            ViewData["Dockets"] = await _layRepo.GetDocketsAsync(master.LayType,master.Style);
 
             return View(master);
         }
@@ -142,6 +143,34 @@ namespace CutUsage.Controllers
             await _layRepo.InsertLayDetailAsync(detail);
             return RedirectToAction(nameof(Details), new { id = layID });
         }
+
+        // LayController.cs
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> SaveRollDetails(LayRollDetailsViewModel vm)
+        {
+            if (!ModelState.IsValid)
+                return View("RollDetails", vm);
+
+            try
+            {
+                // this will INSERT or UPDATE each row and return the last proc message
+                var message = await _layRepo.UpsertCutUsageValuesAsync(vm);
+
+                // store in TempData so it survives the redirect
+                TempData["CutUsageMessage"] = message;
+
+                // redirect back to the GET so the user sees the updated grid
+                return RedirectToAction(nameof(RollDetails), new { id = vm.Header.LayID });
+            }
+            catch (Exception ex)
+            {
+                // show the error above the form
+                ModelState.AddModelError("", ex.Message);
+                return View("RollDetails", vm);
+            }
+        }
+
+
 
         // POST: /Lay/DeleteDetail
         [HttpPost, ValidateAntiForgeryToken]

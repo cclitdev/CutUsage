@@ -3,7 +3,8 @@
     public class LayMaster
     {
         public int LayID { get; set; }
-        public int MarkerId { get; set; }
+        public string MarkerId { get; set; }
+        public string Style { get; set; }
         public int LayType { get; set; }
         public int LayTable { get; set; }
         public DateTime? LayDate { get; set; }

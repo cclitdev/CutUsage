@@ -1,123 +1,180 @@
 ﻿@model CutUsage.Models.LayRollDetailsViewModel
+
 @{
     ViewData["Title"] = $"Lay Details — Lay {Model.Header.LayID}";
 }
 
-<h2>@ViewData["Title"]</h2>
+<style>
+    /* super-compact tables */
+    .compact-table th,
+    .compact-table td {
+        padding: .25rem .4rem; /* very tight */
+        font-size: .75rem; /* ~12px */
+    }
 
-<!-- HEADER (read-only) -->
-<table class="table table-bordered mb-4">
-    <tr>
-        <th>Lay ID</th>
-        <td>@Model.Header.LayID</td>
-        <th>SO</th>
-        <td>@Model.Header.SO</td>
-    </tr>
-    <tr>
-        <th>Marker</th>
-        <td>@Model.Header.MarkerName</td>
-        <th>Lay Type</th>
-        <td>@Model.Header.LayTypeName</td>
-    </tr>
-    <tr>
-        <th>Lay Table</th>
-        <td>@Model.Header.LayTableName</td>
-        <th>FG Style</th>
-        <td>@Model.Header.FGStyle</td>
-    </tr>
-    <tr>
-        <th>FG Color</th>
-        <td>@Model.Header.FGColor</td>
-        <th>Marker Usage</th>
-        <td>@Model.Header.MarkerUsage</td>
-    </tr>
-</table>
+    .compact-heading {
+        font-size: 1rem; /* ~16px */
+        margin-bottom: .5rem;
+    }
+    /* scroll container for exactly 4 rows */
+    .scroll-4rows {
+        max-height: calc(4 * 1.75rem); /* 4 × (approx row height) */
+        overflow-y: auto;
+    }
+</style>
 
-<!-- EDITABLE ROLL GRID -->
-<h3>Enter Roll-Level Details</h3>
+<h4 class="compact-heading">Lay Details — Lay @Model.Header.LayID</h4>
+
+@if (TempData["CutUsageMessage"] is string successMsg)
+{
+    <div class="alert alert-success alert-sm">@successMsg</div>
+}
+@Html.ValidationSummary(true, "", new { @class = "alert alert-danger alert-sm" })
+
+<div class="row align-items-start mb-4">
+    <!-- Left: Lay Details -->
+    <div class="col-md-6">
+        <h6 class="compact-heading">Lay Details</h6>
+        <table class="table table-sm compact-table table-bordered mb-0">
+            <tbody>
+                <tr>
+                    <th>Lay ID</th>
+                    <td>@Model.Header.LayID</td>
+                    <th>SO</th>
+                    <td>@Model.Header.SO</td>
+                </tr>
+                <tr>
+                    <th>Marker</th>
+                    <td>@Model.Header.MarkerName</td>
+                    <th>Lay Type</th>
+                    <td>@Model.Header.LayTypeName</td>
+                </tr>
+                <tr>
+                    <th>Lay Table</th>
+                    <td>@Model.Header.LayTableName</td>
+                    <th>FG Style</th>
+                    <td>@Model.Header.FGStyle</td>
+                </tr>
+                <tr>
+                    <th>FG Color</th>
+                    <td>@Model.Header.FGColor</td>
+                    <th>Marker Usage</th>
+                    <td>@Model.Header.MarkerUsage</td>
+                </tr>
+                @* Material Code & Description *@
+                @if (Model.Details.Any())
+                {
+                    <tr>
+                        <th>Material Code</th>
+                        <td>@Model.Details[0].MaterialCode</td>
+                        <th>Description</th>
+                        <td>@Model.Details[0].MaterialDescription</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Right: Dockets & SO -->
+    <div class="col-md-6">
+        <h6 class="compact-heading">Dockets &amp; SO</h6>
+        <div class="scroll-4rows">
+            <table class="table table-sm compact-table table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:50%">Docket No</th>
+                        <th style="width:50%">SO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var ds in Model.DocketDetails)
+                    {
+                        <tr>
+                            <td>@ds.DocketNo</td>
+                            <td>@ds.SO</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<h5 class="mt-3">Enter Roll-Level Details</h5>
 <form asp-action="SaveRollDetails" method="post">
     @Html.AntiForgeryToken()
     <input type="hidden" asp-for="Header.LayID" />
-
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Roll No</th>
-                <th>Material Code</th>
-                <th>Description</th>
-                <th>Shade</th>
-                <th>Length</th>
-                <th>Vendor</th>
-                <th>Vendor Batch</th>
-                <th>System Batch</th>
-                <th>No Of Plys</th>
-                <th>Part Ply</th>
-                <th>Damage (Act-m)</th>
-                <th>Overlap (Act-m)</th>
-                <th>Roll Shortage (Act-m)</th>
-                <th>Over length (Act-m)</th>
-            </tr>
-        </thead>
-        <tbody>
-            @for (int i = 0; i < Model.Details.Count; i++)
-            {
+    <input type="hidden" asp-for="Header.MarkerId" />
+    <div class="table-responsive">
+        <table class="table table-sm table-striped compact-table mb-0">
+            <thead>
                 <tr>
-                    <td>
-                        @Model.Details[i].RollNo
-                        <input type="hidden" asp-for="Details[i].RollNo" />
-                    </td>
-                    <td>@Model.Details[i].MaterialCode</td>
-                    <td>@Model.Details[i].MaterialDescription</td>
-                    <td>@Model.Details[i].Shade</td>
-                    <td>@Model.Details[i].Length</td>
-                    <td>@Model.Details[i].VendorCode</td>
-                    <td>@Model.Details[i].VendorBatch</td>
-                    <td>@Model.Details[i].SAPBatchNo</td>
-
-                    <!-- NEW columns with tag-helpers -->
-                    <td>
-                        <input asp-for="Details[i].NoOfPlys"
-                               class="form-control"
-                               placeholder="0" />
-                    </td>
-                    <td>
-                        <input asp-for="Details[i].PartPly"
-                               class="form-control"
-                               placeholder="0" />
-                    </td>
-
-                    <!-- your existing four category inputs -->
-                    <td>
-                        <input asp-for="Details[i].Cat1Value"
-                               class="form-control"
-                               placeholder="0.00" />
-                    </td>
-                    <td>
-                        <input asp-for="Details[i].Cat2Value"
-                               class="form-control"
-                               placeholder="0.00" />
-                    </td>
-                    <td>
-                        <input asp-for="Details[i].Cat3Value"
-                               class="form-control"
-                               placeholder="0.00" />
-                    </td>
-                    <td>
-                        <input asp-for="Details[i].Cat4Value"
-                               class="form-control"
-                               placeholder="0.00" />
-                    </td>
+                    <th>Roll No</th>
+                    <th>Shade</th>
+                    <th>Length</th>
+                    <th>Vendor</th>
+                    <th>Vendor Batch</th>
+                    <th>System Batch</th>
+                    <th>Layed Qty</th>
+                    <th>No Of Plys</th>
+                    <th>Part Ply</th>
+                    <th>Binding Qty</th>
+                    <th>Damage</th>
+                    <th>Overlap</th>
+                    <th>Return</th>
+                    <th>Remain</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < Model.Details.Count; i++)
+                {
+                    <tr>
+                        <td>
+                            @Model.Details[i].RollNo
+                            <input type="hidden" asp-for="Details[i].RollNo" />
+                        </td>
+                        <td>@Model.Details[i].Shade</td>
+                        <td>@Model.Details[i].Length</td>
+                        <td>@Model.Details[i].VendorCode</td>
+                        <td>@Model.Details[i].VendorBatch</td>
+                        <td>
+                            @Model.Details[i].SAPBatchNo
+                            <input type="hidden" asp-for="Details[i].SAPBatchNo" />
+                        </td>
+                        <td>
+                            <input asp-for="Details[i].LayedQty" class="form-control form-control-sm" placeholder="0.00" />
+                        </td>
+                        <td>
+                            <input asp-for="Details[i].NoOfPlys" class="form-control form-control-sm" placeholder="0" />
+                        </td>
+                        <td>
+                            <input asp-for="Details[i].PartPly" class="form-control form-control-sm" placeholder="0" />
+                        </td>
+                        <td>
+                            <input asp-for="Details[i].BindingQty" class="form-control form-control-sm" placeholder="0.00" />
+                        </td>
+                        <td>
+                            <input asp-for="Details[i].Cat1Value" class="form-control form-control-sm" placeholder="0.00" />
+                        </td>
+                        <td>
+                            <input asp-for="Details[i].Cat2Value" class="form-control form-control-sm" placeholder="0.00" />
+                        </td>
+                        <td>
+                            <input asp-for="Details[i].Cat3Value" class="form-control form-control-sm" placeholder="0.00" />
+                        </td>
+                        <td>
+                            <input asp-for="Details[i].Cat4Value" class="form-control form-control-sm" placeholder="0.00" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 
-    <button type="submit" class="btn btn-primary">Save</button>
-    <a asp-action="Index" class="btn btn-secondary">Back to Lays</a>
+    <button type="submit" class="btn btn-primary btn-sm mt-2">Save</button>
+    <a asp-action="Index" class="btn btn-secondary btn-sm mt-2">Back to Lays</a>
 </form>
 
 @section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
+    @await Html.PartialAsync("_ValidationScriptsPartial")
 }

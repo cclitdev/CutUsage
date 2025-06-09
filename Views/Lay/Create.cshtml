@@ -5,6 +5,7 @@
     ViewData["Title"] = "Create Lay";
 
     // safe casts with fallback
+    var styles = ViewData["Styles"] as IEnumerable<StyleM> ?? Enumerable.Empty<StyleM>();
     var markers = ViewData["Markers"] as IEnumerable<Marker> ?? Enumerable.Empty<Marker>();
     var types = ViewData["Types"] as IEnumerable<LayType> ?? Enumerable.Empty<LayType>();
     var tables = ViewData["Tables"] as IEnumerable<LayTable> ?? Enumerable.Empty<LayTable>();
@@ -14,6 +15,26 @@
 
 <form asp-action="Create" method="post">
     @Html.AntiForgeryToken()
+
+    <!-- Style dropdown -->
+    <div class="form-group">
+        <label for="Style">Style</label>
+        <select id="Style" name="Style" class="form-control">
+            <option value="">-- select Marker --</option>
+            @foreach (var m in styles)
+            {
+                if (m.Style == Model.Style)
+                {
+                    <option value="@m.Style" selected="selected">@m.Style</option>
+                }
+                else
+                {
+                    <option value="@m.Style">@m.Style</option>
+                }
+            }
+        </select>
+        <span asp-validation-for="Style" class="text-danger"></span>
+    </div>
 
     <!-- Marker dropdown -->
     <div class="form-group">

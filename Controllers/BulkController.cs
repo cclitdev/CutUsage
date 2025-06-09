@@ -26,7 +26,7 @@ namespace CutUsage.Controllers
             // 1) load only LayMaster records where LayType==2 ("bulk")
             var allLays = await _layRepo.GetAllLaysAsync();
             var bulkLays = allLays
-              .Where(l => l.LayType == 2)
+              //.Where(l => l.LayType == 2)
               .ToList();
 
             // 2) load marker names so we can show "LayID – MarkerName"
