@@ -54,20 +54,48 @@ namespace CutUsage.Controllers
         }
 
         // GET: /Lay/Details/5
+        [HttpGet]
         public async Task<IActionResult> Details(int id)
         {
             var master = await _layRepo.GetLayByIdAsync(id);
             if (master == null) return NotFound();
 
-            // load lookups & details
             ViewBag.Markers = await _markerRepo.GetAllAsync();
             ViewBag.Types = await _layRepo.GetLayTypesAsync();
             ViewBag.Tables = await _layRepo.GetLayTablesAsync();
-            ViewBag.Dockets = await _layRepo.GetDocketsAsync(master.LayType,master.Style);
-            ViewBag.Details = await _layRepo.GetLayDetailsAsync(id);
+
+            // load assigned details, now including MaterialCode
+            var details = await _layRepo.GetLayDetailsAsync(id);
+
+            // if any SOs assigned, fetch size breakdown
+            if (details.Any(d => !string.IsNullOrEmpty(d.SO)))
+            {
+                var soList = string.Join(",", details.Select(d => d.SO).Distinct());
+                var sizeDetails = await _layRepo.GetLaySODetailsAsync(soList);
+
+                var sizes = sizeDetails
+                                .Select(x => x.SOSize)
+                                .Distinct()
+                                .ToList();
+
+                var qtyMap = sizeDetails
+                                .GroupBy(x => x.SOSize)
+                                .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
+
+                var totalQty = qtyMap.Values.Sum();
+
+                ViewBag.Sizes = sizes;
+                ViewBag.QtyMap = qtyMap;
+                ViewBag.TotalQty = totalQty;
+            }
+
+            ViewBag.Dockets = await _layRepo.GetDocketsAsync(master.LayType, master.Style,master.LayID);
+            ViewBag.Details = details;  // each d now has SO, DocketNo and MaterialCode
 
             return View(master);
         }
+
+
 
         // GET: /Lay/Assign/11
         [HttpGet]
@@ -83,7 +111,7 @@ namespace CutUsage.Controllers
                 ?? "(unknown)";
 
             // Only need Dockets here
-            ViewData["Dockets"] = await _layRepo.GetDocketsAsync(master.LayType,master.Style);
+            ViewData["Dockets"] = await _layRepo.GetDocketsAsync(master.LayType, master.Style,master.LayID);
 
             return View(master);
         }
@@ -95,7 +123,7 @@ namespace CutUsage.Controllers
             var master = await _layRepo.GetLayByIdAsync(layID);
             if (master == null) return NotFound();
 
-                     var detail = new LayDetail { LayID = layID };
+            var detail = new LayDetail { LayID = layID };
 
             // if it’s a Docket‐type, selected is a DocketNo —
             // so set SO to empty string (never null)

@@ -22,10 +22,7 @@ namespace CutUsage.Controllers
         // GET: /Marker/Create
         public IActionResult Create()
         {
-            return View(new Marker
-            {
-                MarkerId = "-1" // Default to -1 for create
-            });
+            return View(new Marker { MarkerId = "-1" });
         }
 
         // POST: /Marker/Create
@@ -36,7 +33,7 @@ namespace CutUsage.Controllers
             if (!ModelState.IsValid)
                 return View(m);
 
-            await _repo.CreateAsync(m); // returns and sets MarkerId internally
+            await _repo.CreateAsync(m);
             return RedirectToAction(nameof(Index));
         }
 
@@ -44,10 +41,8 @@ namespace CutUsage.Controllers
         public async Task<IActionResult> Edit(string id)
         {
             var m = await _repo.GetByIdAsync(id);
-            if (m == null)
-                return NotFound();
-
-            return View("Create", m); // Reuse Create.cshtml
+            if (m == null) return NotFound();
+            return View("Create", m);
         }
 
         // POST: /Marker/Edit
@@ -66,13 +61,11 @@ namespace CutUsage.Controllers
         public async Task<IActionResult> Delete(string id)
         {
             var m = await _repo.GetByIdAsync(id);
-            if (m == null)
-                return NotFound();
-
+            if (m == null) return NotFound();
             return View(m);
         }
 
-        // POST: /Marker/Delete/5
+        // POST: /Marker/Delete
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(string id)

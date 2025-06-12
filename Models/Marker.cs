@@ -17,6 +17,11 @@ namespace CutUsage.Models
         [Range(0, 1000, ErrorMessage = "Length must be a positive number")]
         public decimal MarkerLength { get; set; }
 
+        
+        [Required(ErrorMessage = "Marker Allowance is required")]
+        [Range(0, 1000, ErrorMessage = "Allowance must be a positive number")]
+        public decimal Allowance { get; set; }
+
         [Required(ErrorMessage = "Marker Usage is required")]
         [Range(0, 1000, ErrorMessage = "Usage must be a positive number")]
         public decimal MarkerUsage { get; set; }

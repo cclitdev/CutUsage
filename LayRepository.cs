@@ -65,21 +65,32 @@ namespace CutUsage
             return list;
         }
 
-        public async Task<List<DocketLookup>> GetDocketsAsync(int layType,string style)
+        /// <summary>
+        /// Retrieves the DocketLookup list for Assign view, now including MaterialCode.
+        /// </summary>
+        public async Task<List<DocketLookup>> GetDocketsAsync(int layType, string style,int layId)
         {
             var list = new List<DocketLookup>();
             using var conn = new SqlConnection(_conn);
-            using var cmd = new SqlCommand("spCutUsage_GetDocketsByLayTypeAndStyle", conn) { CommandType = CommandType.StoredProcedure };
+            using var cmd = new SqlCommand("spCutUsage_GetDocketsByLayTypeAndStyle", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
             cmd.Parameters.AddWithValue("@LayType", layType);
             cmd.Parameters.AddWithValue("@Style", style);
+            cmd.Parameters.AddWithValue("@LayId", layId);
+
             await conn.OpenAsync();
             using var rdr = await cmd.ExecuteReaderAsync();
             while (await rdr.ReadAsync())
+            {
                 list.Add(new DocketLookup
                 {
+                    SO = rdr["SO"].ToString(),
                     DocketNo = rdr["DocketNo"].ToString(),
-                    SO = rdr["SO"].ToString()
+                    MaterialCode = rdr["MaterialCode"].ToString()   // ensure your SP returns this column
                 });
+            }
             return list;
         }
 
@@ -131,7 +142,7 @@ namespace CutUsage
                 {
                     LayID = id,
                     MarkerId = rdr["MarkerId"].ToString(),
-                    MarkerName = rdr["MarkerName"].ToString(), 
+                    MarkerName = rdr["MarkerName"].ToString(),
                     Style = rdr["Style"].ToString(),
                     LayType = (int)rdr["LayType"],
                     LayTable = (int)rdr["LayTable"],
@@ -169,22 +180,31 @@ namespace CutUsage
 
         // ---- Lay Detail ----
 
+        /// <summary>
+        /// Retrieves the LayDetail rows for a given LayID, including MaterialCode.
+        /// </summary>
         public async Task<List<LayDetail>> GetLayDetailsAsync(int layId)
         {
             var list = new List<LayDetail>();
             using var conn = new SqlConnection(_conn);
-            using var cmd = new SqlCommand("spCutUsage_GetLayDetails", conn) { CommandType = CommandType.StoredProcedure };
+            using var cmd = new SqlCommand("spCutUsage_GetLayDetails", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
             cmd.Parameters.AddWithValue("@LayID", layId);
+
             await conn.OpenAsync();
             using var rdr = await cmd.ExecuteReaderAsync();
             while (await rdr.ReadAsync())
+            {
                 list.Add(new LayDetail
                 {
                     LayID = (int)rdr["LayID"],
-                    
                     SO = rdr["SO"].ToString(),
-                    DocketNo = rdr["DocketNo"].ToString()
+                    DocketNo = rdr["DocketNo"].ToString(),
+                    MaterialCode = rdr["MaterialCode"].ToString()   // ensure your SP returns this column
                 });
+            }
             return list;
         }
 
@@ -349,6 +369,32 @@ namespace CutUsage
             }
 
             return vm;
+        }
+
+        /// <summary>
+        /// Calls spCutUsage_GetLaySODetails for a comma-list of SOs
+        /// </summary>
+        public async Task<List<SOSizeDetail>> GetLaySODetailsAsync(string commaSeparatedSO)
+        {
+            var list = new List<SOSizeDetail>();
+            using var conn = new SqlConnection(_conn);
+            using var cmd = new SqlCommand("spCutUsage_GetLaySODetails", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            cmd.Parameters.AddWithValue("@SO", commaSeparatedSO);
+            await conn.OpenAsync();
+            using var rdr = await cmd.ExecuteReaderAsync();
+            while (await rdr.ReadAsync())
+            {
+                list.Add(new SOSizeDetail
+                {
+                    SO = rdr["SO"].ToString(),
+                    SOSize = rdr["SOSize"].ToString(),
+                    Qty = rdr.GetDecimal(rdr.GetOrdinal("Qty"))
+                });
+            }
+            return list;
         }
 
     }

@@ -19,40 +19,36 @@
     <!-- Style dropdown -->
     <div class="form-group">
         <label for="Style">Style</label>
-        <select id="Style" name="Style" class="form-control">
-            <option value="">-- select Marker --</option>
-            @foreach (var m in styles)
-            {
-                if (m.Style == Model.Style)
+        <div class="form-group">
+            <input asp-for="Style"
+                   class="form-control"
+                   list="stylesList"
+                   autocomplete="off"
+                   placeholder="Type to search…" />
+            <datalist id="stylesList">
+                @foreach (var m in (IEnumerable<StyleM>)ViewData["Styles"])
                 {
-                    <option value="@m.Style" selected="selected">@m.Style</option>
+                    <option value="@m.Style"></option>
                 }
-                else
-                {
-                    <option value="@m.Style">@m.Style</option>
-                }
-            }
-        </select>
+            </datalist>
+        </div>
         <span asp-validation-for="Style" class="text-danger"></span>
     </div>
 
     <!-- Marker dropdown -->
     <div class="form-group">
         <label for="MarkerId">Marker</label>
-        <select id="MarkerId" name="MarkerId" class="form-control">
-            <option value="">-- select Marker --</option>
-            @foreach (var m in markers)
+        <input asp-for="MarkerId"
+               class="form-control"
+               list="markersList"
+               autocomplete="off"
+               placeholder="Type to search…" />
+        <datalist id="markersList">
+            @foreach (var m in (IEnumerable<Marker>)ViewData["Markers"])
             {
-                if (m.MarkerId == Model.MarkerId)
-                {
-                    <option value="@m.MarkerId" selected="selected">@m.MarkerName</option>
-                }
-                else
-                {
-                    <option value="@m.MarkerId">@m.MarkerName</option>
-                }
+                <option value="@m.MarkerName"></option>
             }
-        </select>
+        </datalist>
         <span asp-validation-for="MarkerId" class="text-danger"></span>
     </div>
 

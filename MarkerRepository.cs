@@ -12,15 +12,14 @@ namespace CutUsage
     {
         private readonly string _conn;
         public MarkerRepository(IConfiguration cfg)
-        {
-            _conn = cfg.GetConnectionString("DefaultConnection");
-        }
+            => _conn = cfg.GetConnectionString("DefaultConnection");
 
         public async Task<List<Marker>> GetAllAsync()
         {
             var list = new List<Marker>();
             using var conn = new SqlConnection(_conn);
-            using var cmd = new SqlCommand("spCutUsage_GetAllMarkers", conn) { CommandType = CommandType.StoredProcedure };
+            using var cmd = new SqlCommand("spCutUsage_GetAllMarkers", conn)
+            { CommandType = CommandType.StoredProcedure };
             await conn.OpenAsync();
             using var rdr = await cmd.ExecuteReaderAsync();
             while (await rdr.ReadAsync())
@@ -29,78 +28,77 @@ namespace CutUsage
                 {
                     MarkerId = rdr["MarkerId"].ToString(),
                     MarkerName = rdr["MarkerName"].ToString(),
-                    MarkerWidth = decimal.Parse(rdr["MarkerWidth"].ToString()),
-                    MarkerLength = decimal.Parse(rdr["MarkerLength"].ToString()),
-                    MarkerUsage = (decimal)rdr["MarkerUsage"]
+                    MarkerWidth = Convert.ToDecimal(rdr["MarkerWidth"]),
+                    MarkerLength = Convert.ToDecimal(rdr["MarkerLength"]),
+                    MarkerUsage = Convert.ToDecimal(rdr["MarkerUsage"]),
+                    Allowance = Convert.ToDecimal(rdr["Allowance"])  // new column
                 });
             }
             return list;
         }
 
-     
-
         public async Task<Marker> GetByIdAsync(string id)
         {
             Marker m = null;
             using var conn = new SqlConnection(_conn);
-            using var cmd = new SqlCommand("spCutUsage_GetMarkerById", conn) { CommandType = CommandType.StoredProcedure };
+            using var cmd = new SqlCommand("spCutUsage_GetMarkerById", conn)
+            { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Id", id);
             await conn.OpenAsync();
             using var rdr = await cmd.ExecuteReaderAsync();
             if (await rdr.ReadAsync())
+            {
                 m = new Marker
                 {
                     MarkerId = id,
                     MarkerName = rdr["MarkerName"].ToString(),
-                    MarkerWidth = decimal.Parse(rdr["MarkerWidth"].ToString()),
-                    MarkerLength = decimal.Parse(rdr["MarkerLength"].ToString()),
-                    MarkerUsage = (decimal)rdr["MarkerUsage"]
+                    MarkerWidth = Convert.ToDecimal(rdr["MarkerWidth"]),
+                    MarkerLength = Convert.ToDecimal(rdr["MarkerLength"]),
+                    MarkerUsage = Convert.ToDecimal(rdr["MarkerUsage"]),
+                    Allowance = Convert.ToDecimal(rdr["Allowance"])  // new column
                 };
+            }
             return m;
         }
 
         public async Task<string> CreateAsync(Marker marker)
         {
-            using (var conn = new SqlConnection(_conn))
-            using (var cmd = new SqlCommand("spCutUsage_InsertMarker", conn))
-            {
-                cmd.CommandType = CommandType.StoredProcedure;
-                cmd.Parameters.AddWithValue("@MarkerName", marker.MarkerName);
-                cmd.Parameters.AddWithValue("@MarkerWidth", marker.MarkerWidth);
-                cmd.Parameters.AddWithValue("@MarkerLength", marker.MarkerLength);
-                cmd.Parameters.AddWithValue("@MarkerUsage", marker.MarkerUsage);
+            using var conn = new SqlConnection(_conn);
+            using var cmd = new SqlCommand("spCutUsage_InsertMarker", conn)
+            { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@MarkerName", marker.MarkerName);
+            cmd.Parameters.AddWithValue("@MarkerWidth", marker.MarkerWidth);
+            cmd.Parameters.AddWithValue("@MarkerLength", marker.MarkerLength);
+            cmd.Parameters.AddWithValue("@MarkerUsage", marker.MarkerUsage);
+            cmd.Parameters.AddWithValue("@Allowance", marker.Allowance);    // new param
 
-                await conn.OpenAsync();
-                var result = await cmd.ExecuteScalarAsync();
-
-                marker.MarkerId = result?.ToString(); // ✅ Assign the generated MarkerId (string GUID)
-                return marker.MarkerId;
-            }
+            await conn.OpenAsync();
+            var result = await cmd.ExecuteScalarAsync();
+            marker.MarkerId = result?.ToString();
+            return marker.MarkerId;
         }
 
         public async Task UpdateAsync(Marker marker)
         {
-            using (var conn = new SqlConnection(_conn))
-            using (var cmd = new SqlCommand("spCutUsage_UpdateMarker", conn))
-            {
-                cmd.CommandType = CommandType.StoredProcedure;
+            using var conn = new SqlConnection(_conn);
+            using var cmd = new SqlCommand("spCutUsage_UpdateMarker", conn)
+            { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@MarkerID", marker.MarkerId);
+            cmd.Parameters.AddWithValue("@MarkerName", marker.MarkerName);
+            cmd.Parameters.AddWithValue("@MarkerWidth", marker.MarkerWidth);
+            cmd.Parameters.AddWithValue("@MarkerLength", marker.MarkerLength);
+            cmd.Parameters.AddWithValue("@MarkerUsage", marker.MarkerUsage);
+            cmd.Parameters.AddWithValue("@Allowance", marker.Allowance);    // new param
 
-                cmd.Parameters.AddWithValue("@MarkerID", marker.MarkerId); // string
-                cmd.Parameters.AddWithValue("@MarkerName", marker.MarkerName);
-                cmd.Parameters.AddWithValue("@MarkerWidth", marker.MarkerWidth);
-                cmd.Parameters.AddWithValue("@MarkerLength", marker.MarkerLength);
-                cmd.Parameters.AddWithValue("@MarkerUsage", marker.MarkerUsage);
-
-                await conn.OpenAsync();
-                await cmd.ExecuteNonQueryAsync(); // error was here
-            }
+            await conn.OpenAsync();
+            await cmd.ExecuteNonQueryAsync();
         }
-
 
         public async Task DeleteAsync(string id)
         {
             using var conn = new SqlConnection(_conn);
-            using var cmd = new SqlCommand("spCutUsage_DeleteMarker", conn) { CommandType = CommandType.StoredProcedure };
+            using var cmd = new SqlCommand("spCutUsage_DeleteMarker", conn)
+            { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@MarkerId", id);
             await conn.OpenAsync();
             await cmd.ExecuteNonQueryAsync();

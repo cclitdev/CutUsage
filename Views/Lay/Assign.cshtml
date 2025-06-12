@@ -18,20 +18,27 @@
 
     <div class="form-group">
         <label>Select Docket</label>
-        <select name="selected" class="form-control" required>
-            <option value="">-- select --</option>
+
+        <!-- the text-input that the user types into -->
+        <input name="selected"
+               class="form-control"
+               list="docketsList"
+               autocomplete="off"
+               placeholder="Type to search…"
+               required />
+
+        <!-- the list of suggestions -->
+        <datalist id="docketsList">
             @foreach (var x in dockets)
             {
-                // pack both values into the option value, pipe‐separated
-                var optionValue = $"{x.DocketNo}|{x.SO}";
-                <option value="@optionValue">
-                    @($"{x.DocketNo} | {x.SO}")
-                </option>
+                @* we pack DocketNo and SO in the value, split on '|' in your POST *@
+                <option value="@($"{x.DocketNo}|{x.SO}")"></option>
             }
-        </select>
-        @Html.ValidationMessage("selected", "", new { @class = "text-danger" })
+        </datalist>
 
+        @Html.ValidationMessage("selected", "", new { @class = "text-danger" })
     </div>
+
 
     <button type="submit" class="btn btn-primary">Assign</button>
     <a asp-action="Details" asp-route-id="@Model.LayID" class="btn btn-link">Cancel</a>

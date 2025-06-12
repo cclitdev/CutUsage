@@ -15,6 +15,7 @@
             <th>Width</th>
             <th>Length</th>
             <th>Usage</th>
+            <th>Allowance</th>
             <th></th>
         </tr>
     </thead>
@@ -26,6 +27,7 @@
                 <td>@m.MarkerWidth</td>
                 <td>@m.MarkerLength</td>
                 <td>@m.MarkerUsage</td>
+                <td>@m.Allowance</td>
                 <td>
                     <a asp-action="Edit" asp-route-id="@m.MarkerId">Edit</a> |
                     <a asp-action="Delete" asp-route-id="@m.MarkerId">Delete</a>

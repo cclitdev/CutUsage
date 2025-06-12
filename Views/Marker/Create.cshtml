@@ -1,7 +1,7 @@
 ﻿@model CutUsage.Models.Marker
 
 @{
-    var isEdit = Model.MarkerId != "-1"; // Check for edit vs create based on -1
+    var isEdit = Model.MarkerId != "-1";
     var formAction = isEdit ? "Edit" : "Create";
     ViewData["Title"] = isEdit ? "Edit Marker" : "Create Marker";
 }
@@ -38,6 +38,12 @@
         <span asp-validation-for="MarkerUsage" class="text-danger"></span>
     </div>
 
+    <div class="form-group">
+        <label asp-for="Allowance"></label>
+        <input asp-for="Allowance" class="form-control" type="number" step="0.01" value="@(isEdit ? Model.Allowance : 0.04)" />
+        <span asp-validation-for="Allowance" class="text-danger"></span>
+    </div>
+
     <button type="submit" class="btn btn-success">
         @(isEdit ? "Save Changes" : "Create")
     </button>
@@ -45,6 +51,7 @@
 </form>
 
 @section Scripts {
+    @* Use RenderPartialAsync inside a code block to avoid the void-to-object error *@
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }

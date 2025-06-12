@@ -1,30 +1,174 @@
 ﻿@model CutUsage.Models.LayMaster
 @using System.Linq
+@using System.Collections.Generic
 
 @{
-    ViewData["Title"] = "Lay Details";
+    ViewData["Title"] = $"Lay Details — {Model.LayID}";
     var details = ViewBag.Details as IEnumerable<CutUsage.Models.LayDetail>
-                  ?? Enumerable.Empty<CutUsage.Models.LayDetail>();
+                   ?? Enumerable.Empty<CutUsage.Models.LayDetail>();
+    var sizes = ViewBag.Sizes as List<string>
+                   ?? new List<string>();
+    var qtyMap = ViewBag.QtyMap as Dictionary<string, decimal>
+                   ?? new Dictionary<string, decimal>();
+    var totalQty = ViewBag.TotalQty as decimal?
+                   ?? 0m;
 }
 
+<style>
+    /* reduce padding for all table cells */
+    .table-sm th,
+    .table-sm td {
+        padding: 0.25rem 0.5rem;
+    }
+</style>
+
 <h2>
-    @ViewData["Title"] — @Model.LayID
-    <small class="text-muted">(Marker: @Model.MarkerName) - @Model.Style</small>
+    @ViewData["Title"]
+    <small class="text-muted">(Marker: @Model.MarkerName) – @Model.Style</small>
 </h2>
 
-<!-- Your existing Save Times form goes here... -->
+@if (sizes.Any())
+{
+    <h4>Size Summary for Assigned SO(s)</h4>
+
+    <button type="button" id="btnResetAll" class="btn btn-sm btn-secondary mb-3">
+        Reset All Ratios &amp; Plies
+    </button>
+
+    <table class="table table-bordered table-sm">
+        <thead>
+            <tr>
+                <th>Size</th>
+                @foreach (var s in sizes)
+                {
+                    <th>@s</th>
+                }
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Order Qty -->
+            <tr>
+                <td>Order Qty</td>
+                @foreach (var s in sizes)
+                {
+                    <td>@qtyMap.GetValueOrDefault(s, 0)</td>
+                }
+                <td>@totalQty</td>
+            </tr>
+
+            <!-- Marker Ratio & No of Plies -->
+            <tr>
+                <td><strong>Marker Ratio</strong></td>
+                @foreach (var s in sizes)
+                {
+                    <td>
+                        <input type="number"
+                               class="form-control form-control-sm ratio-input"
+                               data-size="@s"
+                               data-order="@qtyMap.GetValueOrDefault(s, 0)"
+                               step="1" min="0"
+                               value="0" />
+                    </td>
+                }
+                <td>
+                    <input type="number"
+                           id="noOfPlies"
+                           class="form-control form-control-sm"
+                           step="1" min="0"
+                           value="0" />
+                </td>
+            </tr>
+
+            <!-- Spacer -->
+            <tr class="table-secondary">
+                <td colspan="@(sizes.Count + 2)">&nbsp;</td>
+            </tr>
+
+            <!-- Calculated Qty -->
+            <tr class="font-weight-bold">
+                <td>Calculated Qty</td>
+                @foreach (var s in sizes)
+                {
+                    <td><span id="calcQty_@s">0</span></td>
+                }
+                <td><span id="calcQtyTotal">0</span></td>
+            </tr>
+
+            <!-- Remain Qty -->
+            <tr class="font-weight-bold">
+                <td>Remain Qty</td>
+                @foreach (var s in sizes)
+                {
+                    <td><span id="remainQty_@s">0</span></td>
+                }
+                <td><span id="remainQtyTotal">0</span></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script>
+        (function () {
+            const pliesInput = document.getElementById("noOfPlies");
+            const ratioInputs = document.querySelectorAll(".ratio-input");
+            const resetBtn = document.getElementById("btnResetAll");
+
+            function recalc() {
+                const plies = parseInt(pliesInput.value, 10) || 0;
+                let grandCalc = 0, grandRemain = 0;
+
+                ratioInputs.forEach(inp => {
+                    const size = inp.dataset.size;
+                    const ratio = parseInt(inp.value, 10) || 0;
+                    const order = parseInt(inp.dataset.order, 10) || 0;
+                    const calc = ratio * plies;
+                    const remain = order - calc;
+
+                    document.getElementById(`calcQty_${size}`).textContent = calc;
+                    const remEl = document.getElementById(`remainQty_${size}`);
+                    remEl.textContent = remain;
+                    remEl.style.color = remain >= 0 ? 'green' : 'red';
+
+                    grandCalc += calc;
+                    grandRemain += remain;
+                });
+
+                document.getElementById("calcQtyTotal").textContent = grandCalc;
+                const remTotalEl = document.getElementById("remainQtyTotal");
+                remTotalEl.textContent = grandRemain;
+                remTotalEl.style.color = grandRemain >= 0 ? 'green' : 'red';
+            }
+
+            pliesInput.addEventListener("input", recalc);
+            ratioInputs.forEach(i => i.addEventListener("input", recalc));
+            resetBtn.addEventListener("click", () => {
+                pliesInput.value = 0;
+                ratioInputs.forEach(i => i.value = 0);
+                recalc();
+            });
+
+            recalc();
+        })();
+    </script>
+}
 
 <h4>Assigned @(Model.LayType == 1 ? "Dockets" : "SOs")</h4>
-<table class="table table-bordered">
+<table class="table table-bordered table-sm">
     <thead>
-        <tr><th>SO</th><th>Docket No</th><th></th></tr>
+        <tr>
+            <th>SO</th>            
+            <th>Docket No</th>
+            <th>Material Code</th>
+            <th></th>
+        </tr>
     </thead>
     <tbody>
         @foreach (var d in details)
         {
             <tr>
-                <td>@d.SO</td>
+                <td>@d.SO</td>                
                 <td>@d.DocketNo</td>
+                <td>@d.MaterialCode</td>
                 <td>
                     <form asp-action="DeleteDetail" method="post">
                         @Html.AntiForgeryToken()
@@ -44,5 +188,6 @@
         Assign @(Model.LayType == 1 ? "Docket" : "SO")
     </a>
 </p>
-
-<p><a asp-action="Index" class="btn btn-secondary">Back to List</a></p>
+<p>
+    <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+</p>
