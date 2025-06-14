@@ -7,7 +7,7 @@
 <h2>@ViewData["Title"]</h2>
 <p><a asp-action="Create" class="btn btn-primary">New Lay</a></p>
 
-<table class="table table-striped">
+<table class="table table-striped table-sm">
     <thead>
         <tr>
             <th>LayID</th>
@@ -18,21 +18,21 @@
             <th>Date</th>
             <th>Start</th>
             <th>Complete</th>
-            <th></th>
+            <th>Actions</th>
         </tr>
     </thead>
     <tbody>
         @foreach (var m in Model)
         {
-            <tr>
+            <tr class="data-row" data-id="@m.LayID" style="cursor:pointer;">
                 <td>@m.LayID</td>
                 <td>@m.Style</td>
                 <td>@m.MarkerName</td>
                 <td>@m.LayTypeName</td>
                 <td>@m.LayTableName</td>
-                <td>@m.LayDate?.ToShortDateString()</td>
-                <td>@m.LayStartTime</td>
-                <td>@m.LayCompleteTime</td>
+                <td>@(m.LayDate?.ToShortDateString() ?? "")</td>
+                <td>@(m.LayStartTime?.ToString("g") ?? "")</td>
+                <td>@(m.LayCompleteTime?.ToString("g") ?? "")</td>
                 <td>
                     <a asp-action="Details" asp-route-id="@m.LayID">Details</a>
                 </td>
@@ -40,3 +40,46 @@
         }
     </tbody>
 </table>
+
+<!-- Bootstrap Modal for Assigned Dockets -->
+<div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailsModalLabel">Assigned Dockets for Lay <span id="modalLayId"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- AJAX-loaded content -->
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const assignUrl = '@Url.Action("AssignPartial", "Lay")';
+            const modalEl = document.getElementById('detailsModal');
+            const modalBody = document.getElementById('modalBody');
+            const modalLayId = document.getElementById('modalLayId');
+
+            document.querySelectorAll('.data-row').forEach(row => {
+                row.addEventListener('click', function (e) {
+                    if (e.target.closest('a')) return;
+                    const id = this.dataset.id;
+                    modalLayId.textContent = id;
+                    modalBody.innerHTML = '<div class="text-center p-3">Loading...</div>';
+
+                    fetch(`${assignUrl}?id=${id}`)
+                        .then(r => r.text())
+                        .then(html => modalBody.innerHTML = html)
+                        .catch(_ => modalBody.innerHTML = '<div class="text-danger">Error loading details.</div>');
+
+                    var bsModal = new bootstrap.Modal(modalEl);
+                    bsModal.show();
+                });
+            });
+        })();
+    </script>
+}

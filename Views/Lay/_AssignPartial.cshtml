@@ -1,0 +1,47 @@
+﻿@model IEnumerable<CutUsage.Models.LayDetail>
+@{
+    var sizes = ViewBag.Sizes as List<string> ?? new List<string>();
+}
+
+<table class="table table-bordered table-sm mb-3">
+    <thead>
+        <tr>
+            <th>SO</th>
+            <th>Material Code</th>
+            <th>Docket No</th>
+            @foreach (var s in sizes)
+            {
+                <th>@s</th>
+            }
+            
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var d in Model)
+        {
+            <tr>
+                <td>@d.SO</td>
+                <td>@d.MaterialCode</td>
+                <td>@d.DocketNo</td>
+                @foreach (var s in sizes)
+                {
+                    <td>
+                        <input type="number"
+                               class="form-control form-control-sm size-input"
+                               name="sizeQty[@d.SO][@s]"
+                               step="1" min="0" />
+                    </td>
+                }
+                
+                <td>
+                    <form asp-action="DeleteDetail" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <input name="layID" type="hidden" value="@d.LayID" />
+                        <input name="so" type="hidden" value="@d.SO" />
+                        <input name="docketNo" type="hidden" value="@d.DocketNo" />
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

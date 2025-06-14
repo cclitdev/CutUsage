@@ -88,7 +88,8 @@ namespace CutUsage
                 {
                     SO = rdr["SO"].ToString(),
                     DocketNo = rdr["DocketNo"].ToString(),
-                    MaterialCode = rdr["MaterialCode"].ToString()   // ensure your SP returns this column
+                    MaterialCode = rdr["MaterialCode"].ToString(),   // ensure your SP returns this column
+                    BOMUsage = rdr.GetDecimal(rdr.GetOrdinal("BOMUsage"))
                 });
             }
             return list;
@@ -202,7 +203,8 @@ namespace CutUsage
                     LayID = (int)rdr["LayID"],
                     SO = rdr["SO"].ToString(),
                     DocketNo = rdr["DocketNo"].ToString(),
-                    MaterialCode = rdr["MaterialCode"].ToString()   // ensure your SP returns this column
+                    MaterialCode = rdr["MaterialCode"].ToString() ,  // ensure your SP returns this column
+                    BOMUsage = rdr.GetDecimal(rdr.GetOrdinal("BOMUsage"))
                 });
             }
             return list;

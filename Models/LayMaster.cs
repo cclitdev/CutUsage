@@ -24,9 +24,10 @@
         public string SO { get; set; }
         public string DocketNo { get; set; }
         public string MaterialCode { get; set; }
+        public decimal BOMUsage { get; set; }      
     }
 
     public class LayType { public int LayTypeId; public string LayTYpeName; }
     public class LayTable { public int LayTableId; public string LayTableName; }
-    public class DocketLookup { public string DocketNo; public string SO; public string MaterialCode; }
+    public class DocketLookup { public string DocketNo; public string SO; public string MaterialCode; public decimal BOMUsage; }
 }

@@ -116,6 +116,32 @@ namespace CutUsage.Controllers
             return View(master);
         }
 
+        // GET: /Lay/AssignPartial?id=123
+        [HttpGet]
+        public async Task<IActionResult> AssignPartial(int id)
+        {
+            // 1) ensure the lay exists
+            var master = await _layRepo.GetLayByIdAsync(id);
+            if (master == null) return NotFound();
+
+            // 2) load the existing SO/Docket details
+            var details = await _layRepo.GetLayDetailsAsync(id);
+
+            // 3) figure out which sizes you need columns for
+            var sizes = new List<string>();
+            if (details.Any(d => !string.IsNullOrEmpty(d.SO)))
+            {
+                var soList = string.Join(",", details.Select(d => d.SO).Distinct());
+                var sizeDetails = await _layRepo.GetLaySODetailsAsync(soList);
+                sizes = sizeDetails.Select(x => x.SOSize).Distinct().ToList();
+            }
+
+            ViewBag.Sizes = sizes;
+            // 4) render the partial with just your “Assigned Dockets” table
+            return PartialView("_AssignPartial", details);
+        }
+
+
         // POST: /Lay/Assign
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> Assign(int layID, string selected)
