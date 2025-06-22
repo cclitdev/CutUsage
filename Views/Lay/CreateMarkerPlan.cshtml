@@ -4,29 +4,80 @@
     var styles = ViewBag.Styles as List<CutUsage.Models.StyleM>
                  ?? new List<CutUsage.Models.StyleM>();
 }
+@section Styles {
+    <style>
+        /* shrink all text */
+        #buildPlanMatrixContainer table {
+            font-size: .75rem;
+        }
 
+            /* header cells wrap, data cells don't */
+            #buildPlanMatrixContainer table td {
+                white-space: nowrap;
+            }
+
+            #buildPlanMatrixContainer table th {
+                white-space: normal;
+            }
+
+                /* first two columns fixed at ~8ch */
+                #buildPlanMatrixContainer table th:nth-of-type(1),
+                #buildPlanMatrixContainer table td:nth-of-type(1),
+                #buildPlanMatrixContainer table th:nth-of-type(2),
+                #buildPlanMatrixContainer table td:nth-of-type(2) {
+                    min-width: 8ch;
+                    max-width: 8ch;
+                }
+
+                /* all other columns at ~5ch */
+                #buildPlanMatrixContainer table th:nth-of-type(n+3),
+                #buildPlanMatrixContainer table td:nth-of-type(n+3) {
+                    min-width: 5ch;
+                    max-width: 5ch;
+                }
+    </style>
+}
 <h2>@ViewData["Title"]</h2>
 
 <form id="planForm" class="mb-4" method="post" asp-action="CreateMarkerPlan">
-    <div class="mb-3">
-        <label class="form-label">Select Style</label>
-        <select id="styleSelect" name="Style" class="form-select">
-            <option value="">— choose a style —</option>
-            @foreach (var st in styles)
-            {
-                <option value="@st.Style">@st.Style</option>
-            }
-        </select>
-    </div>
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-md-4">
+            <label for="styleInput" class="form-label">Select Style</label>
 
-    <div class="mb-3">
-        <label class="form-label">Select SO(s)</label>
-        <select id="soSelect" name="SelectedSO" class="form-select" multiple disabled></select>
-    </div>
+            <!-- free-text input that shows matching options from the datalist -->
+            <input list="styleList"
+                   id="styleInput"
+                   name="Style"
+                   class="form-control"
+                   placeholder="Type or paste style…" />
 
-    <div class="mb-3">
-        <label class="form-label">Select Docket(s)</label>
-        <select id="docketSelect" name="SelectedDocket" class="form-select" multiple disabled></select>
+            <datalist id="styleList">
+                @foreach (var st in styles)
+                {
+                    <option value="@st.Style"></option>
+                }
+            </datalist>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <label for="soSelect" class="form-label">Select SO(s)</label>
+            <select id="soSelect"
+                    name="SelectedSO"
+                    class="form-select"
+                    multiple
+                    disabled>
+            </select>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <label for="docketSelect" class="form-label">Select Docket(s)</label>
+            <select id="docketSelect"
+                    name="SelectedDocket"
+                    class="form-select"
+                    multiple
+                    disabled>
+            </select>
+        </div>
     </div>
 
     <div id="matrixContainer">
@@ -38,11 +89,12 @@
 
 @section Scripts {
     <script>
-        const styleEl = document.getElementById('styleSelect'),
+        const styleEl = document.getElementById('styleInput'),
             soEl = document.getElementById('soSelect'),
             dockEl = document.getElementById('docketSelect'),
             matrixCt = document.getElementById('matrixContainer');
 
+        // fire when the user picks from the datalist or blurs the input
         styleEl.addEventListener('change', async () => {
             const style = styleEl.value;
             soEl.disabled = dockEl.disabled = true;
@@ -115,7 +167,9 @@
                         v = parseInt(i.value, 10) || 0;
                     if (!ratios[d]) ratios[d] = {};
                     ratios[d][s] = v;
+
                 });
+
                 document.querySelectorAll('.plies-input').forEach(i => {
                     plies[i.dataset.docket] = parseInt(i.value, 10) || 0;
                 });
@@ -140,6 +194,15 @@
                 const remTotEl = document.getElementById('remainQtyTotal');
                 remTotEl.textContent = totalRemain;
                 remTotEl.style.color = totalRemain >= 0 ? 'green' : 'red';
+
+                // ----- NEW: compute & display row-level size totals -----
+                Object.keys(ratios).forEach(dock => {
+                    const sum = Object.values(ratios[dock]).reduce((a, b) => a + b, 0);
+                    const cell = document.querySelector(
+                        `.row-total-size[data-docket="${dock}"]`
+                    );
+                    if (cell) cell.textContent = sum;
+                });
             }
 
             document.querySelectorAll('.ratio-input, .plies-input')
@@ -303,9 +366,104 @@
                 if (cell) cell.textContent = fab.toFixed(3);
             }
 
+            function calcUsage(dock) {
+                // read Fabric Requirement
+                const fab = parseFloat(
+                    document.querySelector(`.fabric-req-cell[data-docket="${dock}"]`)
+                        .textContent
+                ) || 0;
+
+                // read Total Size Count
+                const total = parseFloat(
+                    document.querySelector(`.row-total-size[data-docket="${dock}"]`)
+                        .textContent
+                ) || 0;
+
+                // compute usage
+                const usage = total > 0 ? fab / total : 0;
+
+                // write into the marker-usage-cell
+                const cell = document.querySelector(
+                    `.marker-usage-cell[data-docket="${dock}"]`
+                );
+                if (cell) cell.textContent = usage.toFixed(3);
+            }
+
+            function calcSaving(dock) {
+                const bom = parseFloat(
+                    document.querySelector(
+                        `.bom-usage-cell[data-docket="${dock}"]`
+                    ).textContent
+                ) || 0;
+
+                const usage = parseFloat(
+                    document.querySelector(
+                        `.marker-usage-cell[data-docket="${dock}"]`
+                    ).textContent
+                ) || 0;
+
+                const total = parseFloat(
+                    document.querySelector(
+                        `.row-total-size[data-docket="${dock}"]`
+                    ).textContent
+                ) || 0;
+
+                const saving = (bom - usage) * total;
+
+                const cell = document.querySelector(
+                    `.marker-saving-cell[data-docket="${dock}"]`
+                );
+                if (cell) cell.textContent = saving.toFixed(3);
+            }
+
+            /**
+        * Target Length = Total Size Count * BOM Usage
+        */
+            function calcTarget(dock) {
+                const total = parseFloat(
+                    document.querySelector(`.row-total-size[data-docket="${dock}"]`)
+                        .textContent
+                ) || 0;
+
+                const bom = parseFloat(
+                    document.querySelector(`.bom-usage-cell[data-docket="${dock}"]`)
+                        .textContent
+                ) || 0;
+
+                const target = total * bom;
+
+                const cell = document.querySelector(
+                    `.target-length-cell[data-docket="${dock}"]`
+                );
+                if (cell) cell.textContent = target.toFixed(3);
+            }
+
             function doAllCalculations() {
                 recalc();
-                document.querySelectorAll('.plies-input').forEach(i => calcFabric(i.dataset.docket));
+                document.querySelectorAll('.plies-input').forEach(i => {
+                    const dock = i.dataset.docket;
+                    calcFabric(dock);
+                    calcUsage(dock);
+                    calcSaving(dock);
+                    calcTarget(dock);
+                });
+
+                let totalFab = 0, totalSave = 0;
+                document.querySelectorAll('.fabric-req-cell')
+                    .forEach(c => totalFab += parseFloat(c.textContent) || 0);
+                document.querySelectorAll('.marker-saving-cell')
+                    .forEach(c => totalSave += parseFloat(c.textContent) || 0);
+
+                const fabCell = document.getElementById('fabricTotalCell'),
+                    saveCell = document.getElementById('markerSavingTotalCell');
+                if (fabCell) {
+                    fabCell.textContent = totalFab.toFixed(3);
+                    fabCell.style.color = 'blue';      // your first color
+                }
+                if (saveCell) {
+                    saveCell.textContent = totalSave.toFixed(3);
+                    saveCell.style.color = 'crimson';   // your second color
+                }
             }
 
             document.querySelectorAll('.ratio-input, .plies-input, .allowance-input, .marker-length-input').forEach(i => {

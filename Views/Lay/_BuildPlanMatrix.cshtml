@@ -3,30 +3,31 @@
 
 @* Serialize matrix data for the parent script to consume *@
 <script id="matrix-data" type="application/json">
-@Html.Raw(JsonConvert.SerializeObject(new {
-    Sizes       = Model.Sizes,
-    QtyMap      = Model.QtyMap,
-    ExistingCut = Model.ExistingCutMap
-}))
+    @Html.Raw(JsonConvert.SerializeObject(new
+        {
+            Sizes = Model.Sizes,
+            QtyMap = Model.QtyMap,
+            ExistingCut = Model.ExistingCutMap
+        }))
 </script>
 
 <div id="buildPlanMatrixContainer">
     <table class="table table-bordered table-sm mb-4">
         <thead>
             <tr>
-                <th>Size</th>
+                <th></th>
                 <th>Material Code</th>
                 <th>BOM Usage</th>
                 @foreach (var s in Model.Sizes)
                 {
                     <th>@s</th>
                 }
-                <th>Total</th>
+                <th>No of Plies</th>
+                <th>Total Size Count</th>
                 <th>Marker Name</th>
                 <th>Marker Length</th>
                 <th>Marker Width</th>
                 <th>Allowance</th>
-                <th>No of Plies</th>
                 <th>Fabric Requirement</th>
                 <th>Marker Usage</th>
                 <th>Marker Saving</th>
@@ -43,12 +44,19 @@
                 {
                     <td>@Model.QtyMap.GetValueOrDefault(s, 0m)</td>
                 }
-                <td>@Model.TotalQty</td>
-                <td></td><td></td><td></td>
                 <td></td>
-                <td></td><td></td><td></td><td></td><td></td>
-            </tr>
-                <td></td><td></td><td></td><td></td><td></td>
+                <td>@Model.TotalQty</td>
+
+
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td style="display:none"></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
             </tr>
 
             <!-- One “Marker Ratio” row per docket -->
@@ -57,7 +65,10 @@
                 <tr>
                     <td><strong>@d</strong></td>
                     <td>@Model.MaterialCodeMap.GetValueOrDefault(d, "")</td>
-                    <td>@Model.BOMUsageMap.GetValueOrDefault(d, 0m)</td>
+                    <td class="bom-usage-cell"
+                        data-docket="@d">
+                        @Model.BOMUsageMap.GetValueOrDefault(d, 0m)
+                    </td>
                     @foreach (var s in Model.Sizes)
                     {
                         <td>
@@ -72,13 +83,14 @@
                         </td>
                     }
                     <td>
-                    <input type="number"
-                           name="Totals[@d]"
-                           class="form-control form-control-sm docket-total-input"
-                           data-docket="@d"
-                           min="0"
-                           value="0" />
+                        <input type="number"
+                               name="Totals[@d]"
+                               class="form-control form-control-sm docket-total-input"
+                               data-docket="@d"
+                               min="0"
+                               value="0" />
                     </td>
+                    <td class="row-total-size" data-docket="@d">0</td>
                     <td>
                         <input type="text"
                                name="MarkerName[@d]"
@@ -109,24 +121,41 @@
                                step="0.001"
                                value="0.04" />
                     </td>
-                <td>
-                    <!-- No of Plies column -->
-                    <input type="number"
-                           name="Plies[@d]"
-                           class="form-control form-control-sm plies-input"
-                           data-docket="@d"
-                           value="0"
-                           readonly />
-                </td>
-                <td class="fabric-req-cell" data-docket="@d"></td>
-                <td></td>
-                <td></td>
-                <td></td>
+                    <td style="display:none">
+                        <!-- No of Plies column -->
+                        <input type="number"
+                               name="Plies[@d]"
+                               class="form-control form-control-sm plies-input"
+                               data-docket="@d"
+                               value="0"
+                               readonly />
+                    </td>
+                    <td class="fabric-req-cell" data-docket="@d"></td>
+                    <td class="marker-usage-cell"
+                        data-docket="@d">
+                        0
+                    </td>
+
+                    <td class="marker-saving-cell"
+                        data-docket="@d">
+                        0
+                    </td>
+
+                    <td class="target-length-cell"
+                        data-docket="@d">
+                        0
+                    </td>
                 </tr>
             }
 
             <tr class="table-secondary">
-                <td colspan="@(Model.Sizes.Count + 15)">&nbsp;</td>
+                @* blank cells up to Fabric Requirement column *@
+                <td colspan="@( 3 + Model.Sizes.Count + 6 )"></td>
+                <td id="fabricTotalCell"></td>
+                @* blank for the rest *@
+                <td colspan="2"></td>
+                <td id="markerSavingTotalCell"></td>
+                
             </tr>
 
             <!-- Already Cut Qty -->
@@ -142,9 +171,17 @@
                         </span>
                     </td>
                 }
+                <td></td>
                 <td><span id="alreadyQtyTotal">@Model.ExistingCutTotal</span></td>
-                <td></td><td></td><td></td>
-                <td></td><td></td><td></td><td></td><td></td><td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td style="display:none"></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
             </tr>
 
             <!-- Calculated Qty -->
@@ -156,9 +193,17 @@
                 {
                     <td><span id="calcQty_@s">0</span></td>
                 }
+                <td></td>
                 <td><span id="calcQtyTotal">0</span></td>
-                <td></td><td></td><td></td>
-                <td></td><td></td><td></td><td></td><td></td><td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td style="display:none"></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
             </tr>
 
             <!-- Remain Qty -->
@@ -170,9 +215,17 @@
                 {
                     <td><span id="remainQty_@s">0</span></td>
                 }
+                <td></td>
                 <td><span id="remainQtyTotal">0</span></td>
-                <td></td><td></td><td></td>
-                <td></td><td></td><td></td><td></td><td></td><td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td style="display:none"></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
             </tr>
         </tbody>
     </table>
