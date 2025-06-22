@@ -4,15 +4,23 @@
 
 @{
     ViewData["Title"] = $"Lay Details — {Model.LayID}";
-    var details = ViewBag.Details as IEnumerable<CutUsage.Models.LayDetail> ?? Enumerable.Empty<CutUsage.Models.LayDetail>();
-    var sizes = ViewBag.Sizes as List<string> ?? new List<string>();
-    var qtyMap = ViewBag.QtyMap as Dictionary<string, decimal> ?? new Dictionary<string, decimal>();
+    var details = ViewBag.Details as IEnumerable<CutUsage.Models.LayDetail>
+                              ?? Enumerable.Empty<CutUsage.Models.LayDetail>();
+    var sizes = ViewBag.Sizes as List<string>
+                              ?? new List<string>();
+    var qtyMap = ViewBag.QtyMap as Dictionary<string, decimal>
+                              ?? new Dictionary<string, decimal>();
     var totalQty = ViewBag.TotalQty as decimal? ?? 0m;
-    var markers = ViewBag.Markers as List<CutUsage.Models.Marker> ?? new List<CutUsage.Models.Marker>();
+    var markers = ViewBag.Markers as List<CutUsage.Models.Marker>
+                              ?? new List<CutUsage.Models.Marker>();
     var marker = markers.FirstOrDefault(m => m.MarkerName == Model.MarkerName);
     var length = marker?.MarkerLength ?? 0m;
     var width = marker?.MarkerWidth ?? 0m;
     var allowance = marker?.Allowance ?? 0m;
+    var existingCutMap = ViewBag.ExistingCutMap as Dictionary<string, decimal>
+                              ?? new Dictionary<string, decimal>();
+    var existingCutTotal = ViewBag.ExistingCutTotal as decimal? ?? 0m;
+    var msg = TempData["SummaryMessage"] as string;
 }
 
 <style>
@@ -30,186 +38,266 @@
     <small class="text-muted">(Marker: @Model.MarkerName) – @Model.Style</small>
 </h2>
 
-<!-- Summary Table -->
-<table class="table table-bordered table-sm mb-4 summary-table">
-    <thead>
-        <tr>
-            <th>Marker Length</th>
-            <th>Marker Width</th>
-            <th>Allowance</th>
-            <th>No of Plies</th>
-            <th>Fabric Requirement</th>
-            <th>Marker Usage</th>
-            <th>Marker Saving</th>
-            <th>Target Length</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>@length</td>
-            <td>@width</td>
-            <td>@allowance</td>
-            <td><span id="summaryPliesDisplay">0</span></td>
-            <td><span id="summaryFabricReq">0</span></td>
-            <td><span id="summaryUsage">0</span></td>
-            <td><span id="summarySaving">0</span></td>
-            <td><span id="summaryTarget">0</span></td>
-        </tr>
-    </tbody>
-</table>
+@if (!string.IsNullOrEmpty(msg))
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @msg
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
 
-<h4>Size Summary for Assigned SO(s)</h4>
-<button type="button" id="btnResetAll" class="btn btn-sm btn-secondary mb-3">Reset All Ratios &amp; Plies</button>
-<table class="table table-bordered table-sm">
-    <thead>
-        <tr><th>Size</th>@foreach (var s in sizes)
-            {
-                <th>@s</th>
-            }<th>Total</th></tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>Order Qty</td>
-            @foreach (var s in sizes)
-            {
-                <td>@qtyMap.GetValueOrDefault(s, 0)</td>
-            }
-            <td>@totalQty</td>
-        </tr>
-        <tr>
-            <td><strong>Marker Ratio</strong></td>
-            @foreach (var s in sizes)
-            {
-                <td><input type="number" class="form-control form-control-sm ratio-input" data-size="@s" data-order="@qtyMap.GetValueOrDefault(s, 0)" min="0" step="1" value="0" /></td>
-            }
-            <td>
-                <input type="number" id="noOfPlies" class="form-control form-control-sm" min="0" step="1" value="0" />
-            </td>
-        </tr>
-        <tr class="table-secondary">
-            <td colspan="@(sizes.Count+2)">&nbsp;</td>
-        </tr>
-        <tr class="fw-bold">
-            <td>Calculated Qty</td>
-            @foreach (var s in sizes)
-            {
-                <td><span id="calcQty_@s">0</span></td>
-            }
-            <td><span id="calcQtyTotal">0</span></td>
-        </tr>
-        <tr class="fw-bold">
-            <td>Remain Qty</td>
-            @foreach (var s in sizes)
-            {
-                <td><span id="remainQty_@s">0</span></td>
-            }
-            <td><span id="remainQtyTotal">0</span></td>
-        </tr>
-    </tbody>
-</table>
+@using (Html.BeginForm("SaveSummary", "Lay", FormMethod.Post, new { @class = "mb-4" }))
+{
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="LayID" value="@Model.LayID" />
 
-<script>
-    (function () {
-        const ratioInputs = document.querySelectorAll('.ratio-input');
-        const pliesInput = document.getElementById('noOfPlies');
-        const btnReset = document.getElementById('btnResetAll');
-        const length = parseFloat('@length');
-        const allowance = parseFloat('@allowance');
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="m-0">Size Summary for Assigned SO(s)</h4>
+        <button type="submit" class="btn btn-success">
+            <i class="bi bi-save me-1"></i> Save Usage
+        </button>
+    </div>
 
-        function recalc() {
-            const plies = parseInt(pliesInput.value, 10) || 0;
-            let grandCalc = 0,
-                grandRemain = 0;
-
-            // update size-based calculations
-            ratioInputs.forEach(inp => {
-                const size = inp.dataset.size;
-                const ratio = parseInt(inp.value, 10) || 0;
-                const order = parseInt(inp.dataset.order, 10) || 0;
-                const calc = ratio * plies;
-                const remain = order - calc;
-                document.getElementById(`calcQty_${size}`).textContent = calc;
-                const remEl = document.getElementById(`remainQty_${size}`);
-                remEl.textContent = remain;
-                remEl.style.color = remain >= 0 ? 'green' : 'red';
-                grandCalc += calc;
-                grandRemain += remain;
-            });
-
-            document.getElementById('calcQtyTotal').textContent = grandCalc;
-            document.getElementById('remainQtyTotal').textContent = grandRemain;
-            document.getElementById('remainQtyTotal').style.color = grandRemain >= 0 ? 'green' : 'red';
-
-            // summary calculations
-            const fabricReq = (length + allowance) * plies;
-            const usageCalc = grandCalc === 0 ? 0 : fabricReq / grandCalc;
-            const saving = fabricReq - usageCalc;
-            const target = fabricReq * (1 + allowance);
-
-            document.getElementById('summaryPliesDisplay').textContent = plies;
-            document.getElementById('summaryFabricReq').textContent = fabricReq.toFixed(2);
-            document.getElementById('summaryUsage').textContent = usageCalc.toFixed(2);
-            document.getElementById('summarySaving').textContent = saving.toFixed(2);
-            document.getElementById('summaryTarget').textContent = target.toFixed(2);
-        }
-
-        btnReset.addEventListener('click', () => {
-            pliesInput.value = 0;
-            ratioInputs.forEach(i => i.value = 0);
-            recalc();
-        });
-
-        pliesInput.addEventListener('input', recalc);
-        ratioInputs.forEach(i => i.addEventListener('input', recalc));
-        recalc();
-    })();
-</script>
-
-<h4>Assigned Dockets</h4>
-<button type="button" id="btnResetSizes" class="btn btn-sm btn-warning mb-2">Reset Size Inputs</button>
-<table class="table table-bordered table-sm">
-    <thead>
-        <tr>
-            <th>SO</th>
-            <th>Material Code</th>
-            <th>BOM Usage</th>
-            @foreach (var s in sizes)
-            {
-                <th>@s</th>
-            }
-            <th>Docket No</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var d in details)
-        {
+    <!-- Summary Table -->
+    <table class="table table-bordered table-sm mb-4 summary-table">
+        <thead>
             <tr>
-                <td>@d.SO</td>
-                <td>@d.MaterialCode</td>
-                <td>@d.BOMUsage</td>
+                <th>Marker Length</th>
+                <th>Marker Width</th>
+                <th>Allowance</th>
+                <th>No of Plies</th>
+                <th>Fabric Requirement</th>
+                <th>Marker Usage</th>
+                <th>Marker Saving</th>
+                <th>Target Length</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>@length</td>
+                <td>@width</td>
+                <td>@allowance</td>
+                <td><span id="summaryPliesDisplay">0</span></td>
+                <td><span id="summaryFabricReq">0</span></td>
+                <td><span id="summaryUsage">0</span></td>
+                <td><span id="summarySaving">0</span></td>
+                <td><span id="summaryTarget">0</span></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Size Summary Table -->
+    <button type="button" id="btnResetAll" class="btn btn-sm btn-secondary mb-3">
+        Reset All Ratios &amp; Plies
+    </button>
+    <table class="table table-bordered table-sm mb-4">
+        <thead>
+            <tr>
+                <th>Size</th>
+                <th>Marker Name</th>     @* NEW COLUMN HEADER *@
                 @foreach (var s in sizes)
                 {
-                    <td><input type="number" class="form-control form-control-sm size-input" name="sizeQty[@d.SO][@s]" step="1" min="0" /></td>
+                    <th>@s</th>
                 }
-                <td>@d.DocketNo</td>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Order Qty</td>
+                <td>&nbsp;</td>
+                @foreach (var s in sizes)
+                {
+                    <td>@qtyMap.GetValueOrDefault(s, 0)</td>
+                }
+                <td>@totalQty</td>
+            </tr>
+            <tr>
+                <td><strong>Marker Ratio</strong></td>
                 <td>
-                    <form asp-action="DeleteDetail" method="post">
-                        @Html.AntiForgeryToken()
-                        <input name="layID" type="hidden" value="@d.LayID" />
-                        <input name="so" type="hidden" value="@d.SO" />
-                        <input name="docketNo" type="hidden" value="@d.DocketNo" />
-                        <button class="btn btn-sm btn-danger">×</button>
-                    </form>
+                    <input type="text"
+                           name="MarkerName"
+                           class="form-control form-control-sm"
+                           value="@Model.MarkerName" />
+
+                </td>
+                @foreach (var s in sizes)
+                {
+                    <td>
+                        <input type="number"
+                               name="Ratios[@s]"
+                               class="form-control form-control-sm ratio-input"
+                               data-size="@s"
+                               data-order="@qtyMap.GetValueOrDefault(s, 0)"
+                               min="0" step="1" value="0" />
+                    </td>
+                }
+                <td>
+                    <input type="number"
+                           name="NoOfPlies"
+                           id="noOfPlies"
+                           class="form-control form-control-sm"
+                           min="0" step="1" value="0" />
                 </td>
             </tr>
-        }
-    </tbody>
-</table>
+            <tr class="table-secondary">
+                <td colspan="@(sizes.Count + 2)">&nbsp;</td>
+            </tr>
+            <tr class="fw-bold">
+                <td>Already Cut Qty</td>
+                <td>&nbsp;</td>
+                @foreach (var s in sizes)
+                {
+                    <td><span id="alreadyQty_@s">@existingCutMap.GetValueOrDefault(s, 0m)</span></td>
+                }
+                <td><span id="alreadyQtyTotal">@existingCutTotal</span></td>
+            </tr>
+            <tr class="fw-bold">
+                <td>Calculated Qty</td>
 
+                @foreach (var s in sizes)
+                {
+                    <td><span id="calcQty_@s">0</span></td>
+                }
+                <td><span id="calcQtyTotal">0</span></td>
+            </tr>
+            <tr class="fw-bold">
+                <td>Remain Qty</td>
+                <td>&nbsp;</td>
+                @foreach (var s in sizes)
+                {
+                    <td><span id="remainQty_@s">0</span></td>
+                }
+                <td><span id="remainQtyTotal">0</span></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Assigned Dockets Table -->
+    <h4>Assigned Dockets</h4>
+    <button type="button" id="btnResetSizes" class="btn btn-sm btn-warning mb-2">
+        Reset Size Inputs
+    </button>
+    <p class="mt-3">
+        <a asp-action="Assign" asp-route-id="@Model.LayID" class="btn btn-success">
+            Assign @(Model.LayType == 1 ? "Docket" : "SO")
+        </a>
+        <a asp-action="Index" class="btn btn-secondary ms-2">Back to List</a>
+    </p>
+    <table class="table table-bordered table-sm">
+        <thead>
+            <tr>
+                <th>SO</th>
+                <th>Material Code</th>
+                <th>BOM Usage</th>
+                @foreach (var s in sizes)
+                {
+                    <th>@s</th>
+                }
+                <th>Docket No</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var d in details)
+            {
+                <tr>
+                    <td>@d.SO</td>
+                    <td>@d.MaterialCode</td>
+                    <td>@d.BOMUsage</td>
+                    @foreach (var s in sizes)
+                    {
+                        <td>
+                            <input type="number"
+                                   name="SizeQty[@d.DocketNo][@s]"
+                                   class="form-control form-control-sm size-input"
+                                   min="0" step="1" />
+                        </td>
+                    }
+                    <td>@d.DocketNo</td>
+                    <td>
+                        <form asp-action="DeleteDetail" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <input name="layID" type="hidden" value="@d.LayID" />
+                            <input name="so" type="hidden" value="@d.SO" />
+                            <input name="docketNo" type="hidden" value="@d.DocketNo" />
+                            <button class="btn btn-sm btn-danger">×</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+<!-- end SaveSummary form -->
 <script>
-    document.getElementById('btnResetSizes').addEventListener('click', () => document.querySelectorAll('.size-input').forEach(i => i.value = 0));
+    document.getElementById('btnResetSizes')
+        .addEventListener('click', () =>
+            document.querySelectorAll('.size-input').forEach(i => i.value = 0)
+        );
 </script>
 
-<p><a asp-action="Assign" asp-route-id="@Model.LayID" class="btn btn-success">Assign Docket</a></p>
-<p><a asp-action="Index" class="btn btn-secondary">Back to List</a></p>
+@section Scripts {
+    <script>
+        (function () {
+            const ratioInputs = document.querySelectorAll('.ratio-input'),
+                pliesInput = document.getElementById('noOfPlies'),
+                btnResetAll = document.getElementById('btnResetAll'),
+                length = parseFloat('@length'),
+                allowance = parseFloat('@allowance'),
+                existingCuts = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(existingCutMap)),
+                existingTotal = parseFloat('@existingCutTotal');
+
+            function recalc() {
+                const plies = parseInt(pliesInput.value, 10) || 0;
+                let grandCalc = 0, grandRemain = 0;
+
+                ratioInputs.forEach(inp => {
+                    const size = inp.dataset.size,
+                        order = parseInt(inp.dataset.order, 10) || 0,
+                        ratio = parseInt(inp.value, 10) || 0,
+                        calc = ratio * plies,
+                        already = existingCuts[size] || 0,
+                        remain = order - already - calc;
+
+                    document.getElementById(`calcQty_${size}`).textContent = calc;
+                    document.getElementById(`alreadyQty_${size}`).textContent = already;
+                    const remEl = document.getElementById(`remainQty_${size}`);
+                    remEl.textContent = remain;
+                    remEl.style.color = remain >= 0 ? 'green' : 'red';
+
+                    grandCalc += calc;
+                    grandRemain += remain;
+                });
+
+                document.getElementById('calcQtyTotal').textContent = grandCalc;
+                document.getElementById('alreadyQtyTotal').textContent = existingTotal;
+                const remTotEl = document.getElementById('remainQtyTotal');
+                remTotEl.textContent = grandRemain;
+                remTotEl.style.color = grandRemain >= 0 ? 'green' : 'red';
+
+                // summary calculations
+                const fabricReq = (length + allowance) * plies,
+                    usageCalc = grandCalc ? fabricReq / grandCalc : 0,
+                    saving = fabricReq - usageCalc,
+                    target = fabricReq * (1 + allowance);
+
+                document.getElementById('summaryPliesDisplay').textContent = plies;
+                document.getElementById('summaryFabricReq').textContent = fabricReq.toFixed(2);
+                document.getElementById('summaryUsage').textContent = usageCalc.toFixed(2);
+                document.getElementById('summarySaving').textContent = saving.toFixed(2);
+                document.getElementById('summaryTarget').textContent = target.toFixed(2);
+            }
+
+            pliesInput.addEventListener('input', recalc);
+            ratioInputs.forEach(i => i.addEventListener('input', recalc));
+            btnResetAll.addEventListener('click', () => {
+                pliesInput.value = 0;
+                ratioInputs.forEach(i => i.value = 0);
+                recalc();
+            });
+
+            recalc();
+        })();
+    </script>
+}

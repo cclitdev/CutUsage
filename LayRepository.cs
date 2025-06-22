@@ -68,7 +68,7 @@ namespace CutUsage
         /// <summary>
         /// Retrieves the DocketLookup list for Assign view, now including MaterialCode.
         /// </summary>
-        public async Task<List<DocketLookup>> GetDocketsAsync(int layType, string style,int layId)
+        public async Task<List<DocketLookup>> GetDocketsAsync(int layType, string style, int layId)
         {
             var list = new List<DocketLookup>();
             using var conn = new SqlConnection(_conn);
@@ -203,7 +203,7 @@ namespace CutUsage
                     LayID = (int)rdr["LayID"],
                     SO = rdr["SO"].ToString(),
                     DocketNo = rdr["DocketNo"].ToString(),
-                    MaterialCode = rdr["MaterialCode"].ToString() ,  // ensure your SP returns this column
+                    MaterialCode = rdr["MaterialCode"].ToString(),  // ensure your SP returns this column
                     BOMUsage = rdr.GetDecimal(rdr.GetOrdinal("BOMUsage"))
                 });
             }
@@ -399,5 +399,156 @@ namespace CutUsage
             return list;
         }
 
+        // in LayRepository.cs
+        public async Task UpdateInsertLaySoSizeDAsync(
+            int layID,
+            string docketNo,
+            string so,
+            string soSize,
+            int qty)
+        {
+            using var conn = new SqlConnection(_conn);
+            using var cmd = new SqlCommand("spCutUsage_UpdateInsertLaySoSizeD", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            cmd.Parameters.AddWithValue("@LayID", layID);
+            cmd.Parameters.AddWithValue("@DocketNo", docketNo);
+            cmd.Parameters.AddWithValue("@SO", so);
+            cmd.Parameters.AddWithValue("@SOSize", soSize);
+            cmd.Parameters.AddWithValue("@Qty", qty);
+
+            await conn.OpenAsync();
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+
+        public async Task UpdateInsertLayMarkerValuesAsync(int layID, int noOfPlies, decimal fabricReq, decimal markerUsage, decimal markerSaving, decimal targetLength)
+        {
+            using var conn = new SqlConnection(_conn);
+            using var cmd = new SqlCommand("spCutUsage_UpdateInsertLayMarkerValues", conn)
+            { CommandType = CommandType.StoredProcedure };
+
+            cmd.Parameters.AddWithValue("@LayID", layID);
+            cmd.Parameters.AddWithValue("@NoOfPlies", noOfPlies);
+            cmd.Parameters.AddWithValue("@FabricRequirement", fabricReq);
+            cmd.Parameters.AddWithValue("@MarkerUsage", markerUsage);
+            cmd.Parameters.AddWithValue("@MarkerSaving", markerSaving);
+            cmd.Parameters.AddWithValue("@TargetLength", targetLength);
+
+            await conn.OpenAsync();
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        // in LayRepository.cs
+        public async Task<Dictionary<string, decimal>> GetExistingCutBySizeAsync(int layID)
+        {
+            var map = new Dictionary<string, decimal>();
+            using var conn = new SqlConnection(_conn);
+            using var cmd = new SqlCommand(@"
+        SELECT SOSize, SUM(Qty) AS TotalQty
+          FROM dbo.iMAP_CutUsage_LaySoSizeD
+         WHERE LayID = @LayID
+         GROUP BY SOSize", conn)
+            {
+                CommandType = CommandType.Text
+            };
+            cmd.Parameters.AddWithValue("@LayID", layID);
+
+            await conn.OpenAsync();
+            using var rdr = await cmd.ExecuteReaderAsync();
+            while (await rdr.ReadAsync())
+            {
+                var size = rdr["SOSize"].ToString()!;
+                var qty = rdr.GetDecimal(rdr.GetOrdinal("TotalQty"));
+                map[size] = qty;
+            }
+            return map;
+        }
+
+        public async Task<List<string>> GetSOsByStyleAsync(string style)
+        {
+            var list = new List<string>();
+            using var conn = new SqlConnection(_conn);
+            using var cmd = new SqlCommand("dbo.spCutUsage_GetSOsByStyle", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+
+            cmd.Parameters.AddWithValue("@Style", style ?? (object)DBNull.Value);
+
+            await conn.OpenAsync();
+            using var rdr = await cmd.ExecuteReaderAsync();
+            while (await rdr.ReadAsync())
+            {
+                list.Add(rdr.GetString(rdr.GetOrdinal("SO")));
+            }
+            return list;
+        }
+
+
+        public async Task<List<CutUsageDocketDetail>> GetDocketsBySOAsync(string so)
+        {
+            var list = new List<CutUsageDocketDetail>();
+            using var conn = new SqlConnection(_conn);
+            using var cmd = new SqlCommand("dbo.spCutUsage_GetDocketsBySO", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            cmd.Parameters.AddWithValue("@SO", so ?? (object)DBNull.Value);
+
+            await conn.OpenAsync();
+            using var rdr = await cmd.ExecuteReaderAsync();
+            while (await rdr.ReadAsync())
+            {
+                list.Add(new CutUsageDocketDetail
+                {
+                    
+                    DocketNo = rdr.GetString(rdr.GetOrdinal("DocketNo"))
+                });
+            }
+            return list;
+        }
+
+        public class DocketMaterialInfo
+        {
+            public string DocketNo { get; set; }
+            public string MaterialCode { get; set; }
+            public decimal BOMUsage { get; set; }
+        }
+
+        /// <summary>
+        /// Fetch MaterialCode and BOMUsage for a set of dockets via stored procedure
+        /// </summary>
+        public async Task<List<DocketMaterialInfo>> GetDocketMaterialInfoAsync(IEnumerable<string> dockets)
+        {
+            var list = new List<DocketMaterialInfo>();
+            if (!dockets.Any())
+                return list;
+
+            // Pass comma-separated docket list to stored procedure
+            var docketCsv = string.Join(",", dockets);
+
+            using var conn = new SqlConnection(_conn);
+            using var cmd = new SqlCommand("spCutUsage_GetDocketMaterialInfo", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            cmd.Parameters.AddWithValue("@Dockets", docketCsv);
+
+            await conn.OpenAsync();
+            using var rdr = await cmd.ExecuteReaderAsync();
+            while (await rdr.ReadAsync())
+            {
+                list.Add(new DocketMaterialInfo
+                {
+                    DocketNo = rdr.GetString(rdr.GetOrdinal("DocketNo")),
+                    MaterialCode = rdr.GetString(rdr.GetOrdinal("MaterialCode")),
+                    BOMUsage = rdr.GetDecimal(rdr.GetOrdinal("BOMUsage"))
+                });
+            }
+
+            return list;
+        }
     }
 }

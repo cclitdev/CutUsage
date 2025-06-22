@@ -1,0 +1,226 @@
+﻿@using Newtonsoft.Json
+@{
+    ViewData["Title"] = "Create Marker Plan";
+    var styles = ViewBag.Styles as List<CutUsage.Models.StyleM>
+                 ?? new List<CutUsage.Models.StyleM>();
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form id="planForm" class="mb-4" method="post" asp-action="CreateMarkerPlan">
+    <div class="mb-3">
+        <label class="form-label">Select Style</label>
+        <select id="styleSelect" name="Style" class="form-select">
+            <option value="">— choose a style —</option>
+            @foreach (var st in styles)
+            {
+                <option value="@st.Style">@st.Style</option>
+            }
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Select SO(s)</label>
+        <select id="soSelect" name="SelectedSO" class="form-select" multiple disabled></select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Select Docket(s)</label>
+        <select id="docketSelect" name="SelectedDocket" class="form-select" multiple disabled></select>
+    </div>
+
+    <div id="matrixContainer">
+        @* Partial view will be injected here *@
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Plan</button>
+</form>
+
+@section Scripts {
+    <script>
+        const styleEl = document.getElementById('styleSelect'),
+            soEl = document.getElementById('soSelect'),
+            dockEl = document.getElementById('docketSelect'),
+            matrixCt = document.getElementById('matrixContainer');
+
+        styleEl.addEventListener('change', async () => {
+            const style = styleEl.value;
+            soEl.disabled = dockEl.disabled = true;
+            soEl.innerHTML = '<option>Loading…</option>';
+            dockEl.innerHTML = '';
+
+            if (!style) {
+                soEl.innerHTML = '<option>— choose a style —</option>';
+                return;
+            }
+
+            const resp = await fetch(`/Lay/GetSOsByStyle?style=${encodeURIComponent(style)}`);
+            const items = await resp.json();
+            soEl.innerHTML = items
+                .map(i => `<option value="${i.value}">${i.text}</option>`)
+                .join('');
+            soEl.disabled = false;
+        });
+
+        soEl.addEventListener('change', async () => {
+            const selectedSOs = [...soEl.selectedOptions].map(o => o.value);
+            dockEl.disabled = true;
+            dockEl.innerHTML = '<option>Loading…</option>';
+
+            if (selectedSOs.length === 0) {
+                dockEl.innerHTML = '';
+                return;
+            }
+
+            const qs = selectedSOs.map(s => `so=${encodeURIComponent(s)}`).join('&');
+            const resp = await fetch(`/Lay/GetDocketsBySO?${qs}`);
+            const items = await resp.json();
+            dockEl.innerHTML = items
+                .map(i => `<option value="${i.value}">${i.text}</option>`)
+                .join('');
+            dockEl.disabled = false;
+        });
+
+        dockEl.addEventListener('change', async () => {
+            const selectedSOs = [...soEl.selectedOptions].map(o => o.value),
+                selectedDocs = [...dockEl.selectedOptions].map(o => o.value);
+
+            if (selectedDocs.length === 0) {
+                matrixCt.innerHTML = '';
+                return;
+            }
+
+            const qs = [
+                ...selectedSOs.map(s => `so=${encodeURIComponent(s)}`),
+                ...selectedDocs.map(d => `docket=${encodeURIComponent(d)}`)
+            ].join('&');
+
+            const resp = await fetch(`/Lay/BuildPlanMatrix?${qs}`);
+            const html = await resp.text();
+            matrixCt.innerHTML = html;
+
+            buildPlanMatrixInit();
+
+            // Total → plies → recalc
+            document.querySelectorAll('.docket-total-input').forEach(input => {
+                input.addEventListener('input', () => {
+                    const dock = input.dataset.docket;
+                    const plies = document.querySelector(`.plies-input[data-docket="${dock}"]`);
+                    if (plies) {
+                        plies.value = input.value;
+                        plies.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                });
+            });
+
+            // marker-name entered → pull length/width from any existing row
+            document.querySelectorAll('.marker-name-input').forEach(input => {
+                input.addEventListener('input', () => {
+                    const name = input.value.trim();
+                    const dock = input.dataset.docket;
+                    const lenEl = document.querySelector(`.marker-length-input[data-docket="${dock}"]`);
+                    const widEl = document.querySelector(`.marker-width-input[data-docket="${dock}"]`);
+                    const enabled = name !== '';
+                    lenEl.disabled = widEl.disabled = !enabled;
+
+                    if (!enabled) {
+                        lenEl.value = '';
+                        widEl.value = '';
+                        return;
+                    }
+
+                    // look for another row with this name that already has values
+                    for (const other of document.querySelectorAll('.marker-name-input')) {
+                        if (other.dataset.docket !== dock && other.value.trim() === name) {
+                            const od = other.dataset.docket;
+                            const srcLen = document.querySelector(`.marker-length-input[data-docket="${od}"]`).value;
+                            const srcWid = document.querySelector(`.marker-width-input[data-docket="${od}"]`).value;
+                            if (srcLen !== '' || srcWid !== '') {
+                                lenEl.value = srcLen;
+                                widEl.value = srcWid;
+                                break;
+                            }
+                        }
+                    }
+                });
+            });
+
+            // propagate length changes across same name
+            document.querySelectorAll('.marker-length-input').forEach(input => {
+                input.addEventListener('input', () => {
+                    const dock = input.dataset.docket,
+                        val = input.value,
+                        name = document.querySelector(`.marker-name-input[data-docket="${dock}"]`).value.trim();
+                    if (!name) return;
+                    document.querySelectorAll('.marker-length-input').forEach(other => {
+                        const od = other.dataset.docket;
+                        if (od !== dock && document.querySelector(`.marker-name-input[data-docket="${od}"]`).value.trim() === name) {
+                            other.value = val;
+                        }
+                    });
+                });
+            });
+
+            // propagate width changes across same name
+            document.querySelectorAll('.marker-width-input').forEach(input => {
+                input.addEventListener('input', () => {
+                    const dock = input.dataset.docket,
+                        val = input.value,
+                        name = document.querySelector(`.marker-name-input[data-docket="${dock}"]`).value.trim();
+                    if (!name) return;
+                    document.querySelectorAll('.marker-width-input').forEach(other => {
+                        const od = other.dataset.docket;
+                        if (od !== dock && document.querySelector(`.marker-name-input[data-docket="${od}"]`).value.trim() === name) {
+                            other.value = val;
+                        }
+                    });
+                });
+            });
+        });
+
+        function buildPlanMatrixInit() {
+            const vmScript = document.getElementById('matrix-data'),
+                vm = vmScript ? JSON.parse(vmScript.textContent) : { Sizes: [], QtyMap: {}, ExistingCut: {} },
+                sizes = vm.Sizes,
+                orderMap = vm.QtyMap,
+                existing = vm.ExistingCut;
+
+            function recalc() {
+                let totalCalc = 0, totalRem = 0;
+                const ratios = {}, plies = {};
+
+                document.querySelectorAll('.ratio-input').forEach(i => {
+                    const d = i.dataset.docket, s = i.dataset.size, v = parseInt(i.value, 10) || 0;
+                    ratios[d] = ratios[d] || {};
+                    ratios[d][s] = v;
+                });
+                document.querySelectorAll('.plies-input').forEach(i => {
+                    plies[i.dataset.docket] = parseInt(i.value, 10) || 0;
+                });
+
+                sizes.forEach(s => {
+                    const ord = orderMap[s] || 0,
+                        cut = existing[s] || 0,
+                        used = Object.entries(ratios).reduce((sum, [d, map]) => sum + (map[s] || 0) * (plies[d] || 0), 0),
+                        rem = ord - cut - used;
+
+                    document.getElementById(`calcQty_${s}`).textContent = used;
+                    const remEl = document.getElementById(`remainQty_${s}`);
+                    remEl.textContent = rem;
+                    remEl.style.color = rem >= 0 ? 'green' : 'red';
+
+                    totalCalc += used;
+                    totalRem += rem;
+                });
+
+                document.getElementById('calcQtyTotal').textContent = totalCalc;
+                const remTot = document.getElementById('remainQtyTotal');
+                remTot.textContent = totalRem;
+                remTot.style.color = totalRem >= 0 ? 'green' : 'red';
+            }
+
+            document.querySelectorAll('.ratio-input, .plies-input').forEach(i => i.addEventListener('input', recalc));
+            recalc();
+        }
+    </script>
+}

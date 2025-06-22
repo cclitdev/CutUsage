@@ -1,0 +1,179 @@
+﻿@model CutUsage.Models.MarkerPlanMatrixViewModel
+@using Newtonsoft.Json
+
+@* Serialize matrix data for the parent script to consume *@
+<script id="matrix-data" type="application/json">
+@Html.Raw(JsonConvert.SerializeObject(new {
+    Sizes       = Model.Sizes,
+    QtyMap      = Model.QtyMap,
+    ExistingCut = Model.ExistingCutMap
+}))
+</script>
+
+<div id="buildPlanMatrixContainer">
+    <table class="table table-bordered table-sm mb-4">
+        <thead>
+            <tr>
+                <th>Size</th>
+                <th>Material Code</th>
+                <th>BOM Usage</th>
+                @foreach (var s in Model.Sizes)
+                {
+                    <th>@s</th>
+                }
+                <th>Total</th>
+                <th>Marker Name</th>
+                <th>Marker Length</th>
+                <th>Marker Width</th>
+                <th>Allowance</th>
+                <th>No of Plies</th>
+                <th>Fabric Requirement</th>
+                <th>Marker Usage</th>
+                <th>Marker Saving</th>
+                <th>Target Length</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Order Qty -->
+            <tr>
+                <td><strong>Order Qty</strong></td>
+                <td></td>
+                <td></td>
+                @foreach (var s in Model.Sizes)
+                {
+                    <td>@Model.QtyMap.GetValueOrDefault(s, 0m)</td>
+                }
+                <td>@Model.TotalQty</td>
+                <td></td><td></td><td></td>
+                <td></td>
+                <td></td><td></td><td></td><td></td><td></td>
+            </tr>
+                <td></td><td></td><td></td><td></td><td></td>
+            </tr>
+
+            <!-- One “Marker Ratio” row per docket -->
+            @foreach (var d in Model.Dockets)
+            {
+                <tr>
+                    <td><strong>@d</strong></td>
+                    <td>@Model.MaterialCodeMap.GetValueOrDefault(d, "")</td>
+                    <td>@Model.BOMUsageMap.GetValueOrDefault(d, 0m)</td>
+                    @foreach (var s in Model.Sizes)
+                    {
+                        <td>
+                            <input type="number"
+                                   name="Ratios[@d][@s]"
+                                   class="form-control form-control-sm ratio-input"
+                                   data-docket="@d"
+                                   data-size="@s"
+                                   data-order="@Model.QtyMap.GetValueOrDefault(s, 0m)"
+                                   min="0"
+                                   value="0" />
+                        </td>
+                    }
+                    <td>
+                    <input type="number"
+                           name="Totals[@d]"
+                           class="form-control form-control-sm docket-total-input"
+                           data-docket="@d"
+                           min="0"
+                           value="0" />
+                    </td>
+                    <td>
+                        <input type="text"
+                               name="MarkerName[@d]"
+                               class="form-control form-control-sm marker-name-input"
+                               data-docket="@d" />
+                    </td>
+                    <td>
+                        <input type="number"
+                               name="MarkerLength[@d]"
+                               step="0.001"
+                               class="form-control form-control-sm marker-length-input"
+                               data-docket="@d"
+                               disabled />
+                    </td>
+                    <td>
+                        <input type="number"
+                               name="MarkerWidth[@d]"
+                               step="0.001"
+                               class="form-control form-control-sm marker-width-input"
+                               data-docket="@d"
+                               disabled />
+                    </td>
+                    <td>
+                        <input type="number"
+                               name="Allowance[@d]"
+                               class="form-control form-control-sm allowance-input"
+                               data-docket="@d"
+                               step="0.001"
+                               value="0.04" />
+                    </td>
+                <td>
+                    <!-- No of Plies column -->
+                    <input type="number"
+                           name="Plies[@d]"
+                           class="form-control form-control-sm plies-input"
+                           data-docket="@d"
+                           value="0"
+                           readonly />
+                </td>
+                <td class="fabric-req-cell" data-docket="@d"></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                </tr>
+            }
+
+            <tr class="table-secondary">
+                <td colspan="@(Model.Sizes.Count + 15)">&nbsp;</td>
+            </tr>
+
+            <!-- Already Cut Qty -->
+            <tr>
+                <td><strong>Already Cut Qty</strong></td>
+                <td></td>
+                <td></td>
+                @foreach (var s in Model.Sizes)
+                {
+                    <td>
+                        <span id="alreadyQty_@s">
+                            @Model.ExistingCutMap.GetValueOrDefault(s, 0m)
+                        </span>
+                    </td>
+                }
+                <td><span id="alreadyQtyTotal">@Model.ExistingCutTotal</span></td>
+                <td></td><td></td><td></td>
+                <td></td><td></td><td></td><td></td><td></td><td></td>
+            </tr>
+
+            <!-- Calculated Qty -->
+            <tr class="fw-bold">
+                <td><strong>Calculated Qty</strong></td>
+                <td></td>
+                <td></td>
+                @foreach (var s in Model.Sizes)
+                {
+                    <td><span id="calcQty_@s">0</span></td>
+                }
+                <td><span id="calcQtyTotal">0</span></td>
+                <td></td><td></td><td></td>
+                <td></td><td></td><td></td><td></td><td></td><td></td>
+            </tr>
+
+            <!-- Remain Qty -->
+            <tr class="fw-bold">
+                <td><strong>Remain Qty</strong></td>
+                <td></td>
+                <td></td>
+                @foreach (var s in Model.Sizes)
+                {
+                    <td><span id="remainQty_@s">0</span></td>
+                }
+                <td><span id="remainQtyTotal">0</span></td>
+                <td></td><td></td><td></td>
+                <td></td><td></td><td></td><td></td><td></td><td></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
