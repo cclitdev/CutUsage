@@ -200,16 +200,25 @@
 
             // length propagation + dispatch
             document.querySelectorAll('.marker-length-input').forEach(input => {
-                input.addEventListener('input', () => {
+                input.addEventListener('input', e => {
+                    // ← only run on true user input
+                    if (!e.isTrusted) return;
+
                     const dock = input.dataset.docket,
                         val = input.value,
-                        name = document.querySelector(`.marker-name-input[data-docket="${dock}"]`).value.trim();
+                        name = document.querySelector(
+                            `.marker-name-input[data-docket="${dock}"]`
+                        ).value.trim();
                     if (!name) return;
+
                     document.querySelectorAll('.marker-length-input').forEach(other => {
                         const od = other.dataset.docket,
-                            on = document.querySelector(`.marker-name-input[data-docket="${od}"]`).value.trim();
+                            on = document.querySelector(
+                                `.marker-name-input[data-docket="${od}"]`
+                            ).value.trim();
                         if (od !== dock && on === name) {
                             other.value = val;
+                            // this synthetic event will have isTrusted === false
                             other.dispatchEvent(new Event('input', { bubbles: true }));
                         }
                     });
@@ -218,14 +227,21 @@
 
             // width propagation + dispatch
             document.querySelectorAll('.marker-width-input').forEach(input => {
-                input.addEventListener('input', () => {
+                input.addEventListener('input', e => {
+                    if (!e.isTrusted) return;
+
                     const dock = input.dataset.docket,
                         val = input.value,
-                        name = document.querySelector(`.marker-name-input[data-docket="${dock}"]`).value.trim();
+                        name = document.querySelector(
+                            `.marker-name-input[data-docket="${dock}"]`
+                        ).value.trim();
                     if (!name) return;
+
                     document.querySelectorAll('.marker-width-input').forEach(other => {
                         const od = other.dataset.docket,
-                            on = document.querySelector(`.marker-name-input[data-docket="${od}"]`).value.trim();
+                            on = document.querySelector(
+                                `.marker-name-input[data-docket="${od}"]`
+                            ).value.trim();
                         if (od !== dock && on === name) {
                             other.value = val;
                             other.dispatchEvent(new Event('input', { bubbles: true }));
