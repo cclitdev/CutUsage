@@ -53,12 +53,9 @@
                 soEl.innerHTML = '<option>— choose a style —</option>';
                 return;
             }
-
             const resp = await fetch(`/Lay/GetSOsByStyle?style=${encodeURIComponent(style)}`);
             const items = await resp.json();
-            soEl.innerHTML = items
-                .map(i => `<option value="${i.value}">${i.text}</option>`)
-                .join('');
+            soEl.innerHTML = items.map(i => `<option value="${i.value}">${i.text}</option>`).join('');
             soEl.disabled = false;
         });
 
@@ -66,18 +63,14 @@
             const selectedSOs = [...soEl.selectedOptions].map(o => o.value);
             dockEl.disabled = true;
             dockEl.innerHTML = '<option>Loading…</option>';
-
-            if (selectedSOs.length === 0) {
+            if (!selectedSOs.length) {
                 dockEl.innerHTML = '';
                 return;
             }
-
             const qs = selectedSOs.map(s => `so=${encodeURIComponent(s)}`).join('&');
             const resp = await fetch(`/Lay/GetDocketsBySO?${qs}`);
             const items = await resp.json();
-            dockEl.innerHTML = items
-                .map(i => `<option value="${i.value}">${i.text}</option>`)
-                .join('');
+            dockEl.innerHTML = items.map(i => `<option value="${i.value}">${i.text}</option>`).join('');
             dockEl.disabled = false;
         });
 
@@ -85,113 +78,42 @@
             const selectedSOs = [...soEl.selectedOptions].map(o => o.value),
                 selectedDocs = [...dockEl.selectedOptions].map(o => o.value);
 
-            if (selectedDocs.length === 0) {
+            if (!selectedDocs.length) {
                 matrixCt.innerHTML = '';
                 return;
             }
-
             const qs = [
                 ...selectedSOs.map(s => `so=${encodeURIComponent(s)}`),
                 ...selectedDocs.map(d => `docket=${encodeURIComponent(d)}`)
             ].join('&');
 
             const resp = await fetch(`/Lay/BuildPlanMatrix?${qs}`);
-            const html = await resp.text();
-            matrixCt.innerHTML = html;
+            matrixCt.innerHTML = await resp.text();
 
             buildPlanMatrixInit();
-
-            // Total → plies → recalc
-            document.querySelectorAll('.docket-total-input').forEach(input => {
-                input.addEventListener('input', () => {
-                    const dock = input.dataset.docket;
-                    const plies = document.querySelector(`.plies-input[data-docket="${dock}"]`);
-                    if (plies) {
-                        plies.value = input.value;
-                        plies.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-                });
-            });
-
-            // marker-name entered → pull length/width from any existing row
-            document.querySelectorAll('.marker-name-input').forEach(input => {
-                input.addEventListener('input', () => {
-                    const name = input.value.trim();
-                    const dock = input.dataset.docket;
-                    const lenEl = document.querySelector(`.marker-length-input[data-docket="${dock}"]`);
-                    const widEl = document.querySelector(`.marker-width-input[data-docket="${dock}"]`);
-                    const enabled = name !== '';
-                    lenEl.disabled = widEl.disabled = !enabled;
-
-                    if (!enabled) {
-                        lenEl.value = '';
-                        widEl.value = '';
-                        return;
-                    }
-
-                    // look for another row with this name that already has values
-                    for (const other of document.querySelectorAll('.marker-name-input')) {
-                        if (other.dataset.docket !== dock && other.value.trim() === name) {
-                            const od = other.dataset.docket;
-                            const srcLen = document.querySelector(`.marker-length-input[data-docket="${od}"]`).value;
-                            const srcWid = document.querySelector(`.marker-width-input[data-docket="${od}"]`).value;
-                            if (srcLen !== '' || srcWid !== '') {
-                                lenEl.value = srcLen;
-                                widEl.value = srcWid;
-                                break;
-                            }
-                        }
-                    }
-                });
-            });
-
-            // propagate length changes across same name
-            document.querySelectorAll('.marker-length-input').forEach(input => {
-                input.addEventListener('input', () => {
-                    const dock = input.dataset.docket,
-                        val = input.value,
-                        name = document.querySelector(`.marker-name-input[data-docket="${dock}"]`).value.trim();
-                    if (!name) return;
-                    document.querySelectorAll('.marker-length-input').forEach(other => {
-                        const od = other.dataset.docket;
-                        if (od !== dock && document.querySelector(`.marker-name-input[data-docket="${od}"]`).value.trim() === name) {
-                            other.value = val;
-                        }
-                    });
-                });
-            });
-
-            // propagate width changes across same name
-            document.querySelectorAll('.marker-width-input').forEach(input => {
-                input.addEventListener('input', () => {
-                    const dock = input.dataset.docket,
-                        val = input.value,
-                        name = document.querySelector(`.marker-name-input[data-docket="${dock}"]`).value.trim();
-                    if (!name) return;
-                    document.querySelectorAll('.marker-width-input').forEach(other => {
-                        const od = other.dataset.docket;
-                        if (od !== dock && document.querySelector(`.marker-name-input[data-docket="${od}"]`).value.trim() === name) {
-                            other.value = val;
-                        }
-                    });
-                });
-            });
+            setupPropagation();
+            setupCentralCalculation();
         });
 
         function buildPlanMatrixInit() {
             const vmScript = document.getElementById('matrix-data'),
-                vm = vmScript ? JSON.parse(vmScript.textContent) : { Sizes: [], QtyMap: {}, ExistingCut: {} },
+                vm = vmScript
+                    ? JSON.parse(vmScript.textContent)
+                    : { Sizes: [], QtyMap: {}, ExistingCut: {} },
                 sizes = vm.Sizes,
                 orderMap = vm.QtyMap,
-                existing = vm.ExistingCut;
+                existingMap = vm.ExistingCut;
 
             function recalc() {
-                let totalCalc = 0, totalRem = 0;
+                let totalCalc = 0,
+                    totalRemain = 0;
                 const ratios = {}, plies = {};
 
                 document.querySelectorAll('.ratio-input').forEach(i => {
-                    const d = i.dataset.docket, s = i.dataset.size, v = parseInt(i.value, 10) || 0;
-                    ratios[d] = ratios[d] || {};
+                    const d = i.dataset.docket,
+                        s = i.dataset.size,
+                        v = parseInt(i.value, 10) || 0;
+                    if (!ratios[d]) ratios[d] = {};
                     ratios[d][s] = v;
                 });
                 document.querySelectorAll('.plies-input').forEach(i => {
@@ -200,27 +122,183 @@
 
                 sizes.forEach(s => {
                     const ord = orderMap[s] || 0,
-                        cut = existing[s] || 0,
-                        used = Object.entries(ratios).reduce((sum, [d, map]) => sum + (map[s] || 0) * (plies[d] || 0), 0),
-                        rem = ord - cut - used;
+                        cut = existingMap[s] || 0,
+                        used = Object.entries(ratios).reduce((sum, [d, map]) =>
+                            sum + (map[s] || 0) * (plies[d] || 0), 0),
+                        remain = ord - cut - used;
 
                     document.getElementById(`calcQty_${s}`).textContent = used;
                     const remEl = document.getElementById(`remainQty_${s}`);
-                    remEl.textContent = rem;
-                    remEl.style.color = rem >= 0 ? 'green' : 'red';
+                    remEl.textContent = remain;
+                    remEl.style.color = remain >= 0 ? 'green' : 'red';
 
                     totalCalc += used;
-                    totalRem += rem;
+                    totalRemain += remain;
                 });
 
                 document.getElementById('calcQtyTotal').textContent = totalCalc;
-                const remTot = document.getElementById('remainQtyTotal');
-                remTot.textContent = totalRem;
-                remTot.style.color = totalRem >= 0 ? 'green' : 'red';
+                const remTotEl = document.getElementById('remainQtyTotal');
+                remTotEl.textContent = totalRemain;
+                remTotEl.style.color = totalRemain >= 0 ? 'green' : 'red';
             }
 
-            document.querySelectorAll('.ratio-input, .plies-input').forEach(i => i.addEventListener('input', recalc));
+            document.querySelectorAll('.ratio-input, .plies-input')
+                .forEach(i => i.addEventListener('input', recalc));
             recalc();
+        }
+
+        function setupPropagation() {
+            // Total → plies → recalc
+            document.querySelectorAll('.docket-total-input').forEach(input => {
+                input.addEventListener('input', () => {
+                    const d = input.dataset.docket;
+                    const p = document.querySelector(`.plies-input[data-docket="${d}"]`);
+                    if (p) {
+                        p.value = input.value;
+                        p.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                });
+            });
+
+            // marker-name → enable + copy length/width + dispatch
+            document.querySelectorAll('.marker-name-input').forEach(input => {
+                input.addEventListener('input', () => {
+                    const name = input.value.trim(),
+                        dock = input.dataset.docket,
+                        lenEl = document.querySelector(`.marker-length-input[data-docket="${dock}"]`),
+                        widEl = document.querySelector(`.marker-width-input[data-docket="${dock}"]`);
+
+                    // enable/disable length & width
+                    const enabled = name !== '';
+                    lenEl.disabled = !enabled;
+                    widEl.disabled = !enabled;
+
+                    if (!enabled) {
+                        lenEl.value = '';
+                        widEl.value = '';
+                        lenEl.dispatchEvent(new Event('input', { bubbles: true }));
+                        widEl.dispatchEvent(new Event('input', { bubbles: true }));
+                        return;
+                    }
+
+                    // copy from any other row with same name
+                    document.querySelectorAll('.marker-name-input').forEach(other => {
+                        if (other.dataset.docket !== dock && other.value.trim() === name) {
+                            const od = other.dataset.docket,
+                                srcLen = document.querySelector(`.marker-length-input[data-docket="${od}"]`).value,
+                                srcWid = document.querySelector(`.marker-width-input[data-docket="${od}"]`).value;
+                            if (srcLen || srcWid) {
+                                lenEl.value = srcLen;
+                                widEl.value = srcWid;
+                                lenEl.dispatchEvent(new Event('input', { bubbles: true }));
+                                widEl.dispatchEvent(new Event('input', { bubbles: true }));
+                            }
+                        }
+                    });
+                });
+            });
+
+            // length propagation + dispatch
+            document.querySelectorAll('.marker-length-input').forEach(input => {
+                input.addEventListener('input', () => {
+                    const dock = input.dataset.docket,
+                        val = input.value,
+                        name = document.querySelector(`.marker-name-input[data-docket="${dock}"]`).value.trim();
+                    if (!name) return;
+                    document.querySelectorAll('.marker-length-input').forEach(other => {
+                        const od = other.dataset.docket,
+                            on = document.querySelector(`.marker-name-input[data-docket="${od}"]`).value.trim();
+                        if (od !== dock && on === name) {
+                            other.value = val;
+                            other.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    });
+                });
+            });
+
+            // width propagation + dispatch
+            document.querySelectorAll('.marker-width-input').forEach(input => {
+                input.addEventListener('input', () => {
+                    const dock = input.dataset.docket,
+                        val = input.value,
+                        name = document.querySelector(`.marker-name-input[data-docket="${dock}"]`).value.trim();
+                    if (!name) return;
+                    document.querySelectorAll('.marker-width-input').forEach(other => {
+                        const od = other.dataset.docket,
+                            on = document.querySelector(`.marker-name-input[data-docket="${od}"]`).value.trim();
+                        if (od !== dock && on === name) {
+                            other.value = val;
+                            other.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    });
+                });
+            });
+        }
+
+        function setupCentralCalculation() {
+            const vmScript = document.getElementById('matrix-data'),
+                vm = vmScript ? JSON.parse(vmScript.textContent) : { Sizes: [], QtyMap: {}, ExistingCut: {} },
+                sizes = vm.Sizes;
+
+            function recalc() {
+                let totalCalc = 0, totalRemain = 0;
+                const ratios = {}, plies = {};
+
+                document.querySelectorAll('.ratio-input').forEach(i => {
+                    const d = i.dataset.docket,
+                        s = i.dataset.size,
+                        v = parseInt(i.value, 10) || 0;
+                    if (!ratios[d]) ratios[d] = {};
+                    ratios[d][s] = v;
+                });
+
+                document.querySelectorAll('.plies-input').forEach(i => {
+                    plies[i.dataset.docket] = parseInt(i.value, 10) || 0;
+                });
+
+                sizes.forEach(s => {
+                    const ord = vm.QtyMap[s] || 0,
+                        cut = vm.ExistingCut[s] || 0,
+                        used = Object.entries(ratios).reduce((sum, [d, map]) =>
+                            sum + (map[s] || 0) * (plies[d] || 0), 0),
+                        remain = ord - cut - used;
+
+                    document.getElementById(`calcQty_${s}`).textContent = used;
+                    const remEl = document.getElementById(`remainQty_${s}`);
+                    remEl.textContent = remain;
+                    remEl.style.color = remain >= 0 ? 'green' : 'red';
+
+                    totalCalc += used;
+                    totalRemain += remain;
+                });
+
+                document.getElementById('calcQtyTotal').textContent = totalCalc;
+                const remTotEl = document.getElementById('remainQtyTotal');
+                remTotEl.textContent = totalRemain;
+                remTotEl.style.color = totalRemain >= 0 ? 'green' : 'red';
+            }
+
+            function calcFabric(dock) {
+                const len = parseFloat(document.querySelector(`.marker-length-input[data-docket="${dock}"]`).value) || 0,
+                    allow = parseFloat(document.querySelector(`.allowance-input[data-docket="${dock}"]`).value) || 0,
+                    ply = parseInt(document.querySelector(`.plies-input[data-docket="${dock}"]`).value, 10) || 0,
+                    fab = (len + allow) * ply,
+                    cell = document.querySelector(`.fabric-req-cell[data-docket="${dock}"]`);
+                if (cell) cell.textContent = fab.toFixed(3);
+            }
+
+            function doAllCalculations() {
+                recalc();
+                document.querySelectorAll('.plies-input').forEach(i => calcFabric(i.dataset.docket));
+            }
+
+            document.querySelectorAll('.ratio-input, .plies-input, .allowance-input, .marker-length-input').forEach(i => {
+                i.addEventListener('input', doAllCalculations);
+            });
+
+            doAllCalculations();
         }
     </script>
 }
+
+
