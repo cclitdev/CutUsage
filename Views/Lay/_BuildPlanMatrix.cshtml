@@ -12,7 +12,7 @@
 </script>
 
 <div id="buildPlanMatrixContainer">
-    <table class="table table-bordered table-sm mb-4">
+    <table class="table table-bordered table-sm table-striped table-hover mb-4">
         <thead>
             <tr>
                 <th></th>
@@ -24,7 +24,7 @@
                 }
                 <th>No of Plies</th>
                 <th>Total Size Count</th>
-                <th>Marker Name</th>
+                <th class="marker-name-col">Marker Name</th>
                 <th>Marker Length</th>
                 <th>Marker Width</th>
                 <th>Allowance</th>
@@ -37,18 +37,18 @@
         <tbody>
             <!-- Order Qty -->
             <tr>
-                <td><strong>Order Qty</strong></td>
                 <td></td>
-                <td></td>
+                <td style="background-color:lavender"><strong>Order Qty</strong></td>
+                <td style="background-color:lavender"></td>
                 @foreach (var s in Model.Sizes)
                 {
-                    <td>@Model.QtyMap.GetValueOrDefault(s, 0m)</td>
+                    <td style="background-color:lavender">@Model.QtyMap.GetValueOrDefault(s, 0m)</td>
                 }
-                <td></td>
-                <td>@Model.TotalQty</td>
+                <td style="background-color:lavender"></td>
+                <td style="background-color:lavender">@Model.TotalQty</td>
 
 
-                <td></td>
+                <td class="marker-name-col"></td>
                 <td></td>
                 <td></td>
                 <td></td>
@@ -91,7 +91,7 @@
                                value="0" />
                     </td>
                     <td class="row-total-size" data-docket="@d">0</td>
-                    <td>
+                    <td class="marker-name-col">
                         <input type="text"
                                name="MarkerName[@d]"
                                class="form-control form-control-sm marker-name-input"
@@ -155,7 +155,7 @@
                 @* blank for the rest *@
                 <td colspan="2"></td>
                 <td id="markerSavingTotalCell"></td>
-                
+
             </tr>
 
             <!-- Already Cut Qty -->
@@ -173,7 +173,7 @@
                 }
                 <td></td>
                 <td><span id="alreadyQtyTotal">@Model.ExistingCutTotal</span></td>
-                <td></td>
+                <td class="marker-name-col"></td>
                 <td></td>
                 <td></td>
                 <td></td>
@@ -195,7 +195,7 @@
                 }
                 <td></td>
                 <td><span id="calcQtyTotal">0</span></td>
-                <td></td>
+                <td class="marker-name-col"></td>
                 <td></td>
                 <td></td>
                 <td></td>
@@ -217,7 +217,7 @@
                 }
                 <td></td>
                 <td><span id="remainQtyTotal">0</span></td>
-                <td></td>
+                <td class="marker-name-col"></td>
                 <td></td>
                 <td></td>
                 <td></td>

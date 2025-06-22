@@ -1,4 +1,5 @@
-﻿@using Newtonsoft.Json
+﻿@model CutUsage.Models.MarkerPlanCreateViewModel
+@using Newtonsoft.Json
 @{
     ViewData["Title"] = "Create Marker Plan";
     var styles = ViewBag.Styles as List<CutUsage.Models.StyleM>
@@ -6,42 +7,95 @@
 }
 @section Styles {
     <style>
-        /* shrink all text */
-        #buildPlanMatrixContainer table {
+        /* hide number‐input spinners in Chrome, Safari, Edge */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        /* hide number‐input spinners in Firefox */
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        /* 1) Target *your* wrapper (#matrixContainer), *not* the old #buildPlanMatrixContainer */
+        #matrixContainer table {
             font-size: .75rem;
         }
 
-            /* header cells wrap, data cells don't */
-            #buildPlanMatrixContainer table td {
-                white-space: nowrap;
-            }
+        /* 2) Make Marker Name at least 20 characters wide */
+        #matrixContainer th.marker-name-col,
+        #matrixContainer .marker-name-input {
+            min-width: 20ch;
+            /* or if you want a fixed width: width: 20ch; */
+        }
 
-            #buildPlanMatrixContainer table th {
-                white-space: normal;
-            }
+        /* 3) Tighter numeric columns (adjust the nth‐of‐type indexes as needed) */
+        /* e.g. “No of Plies” is column 10, “Total Size Count” is 11: */
+        #matrixContainer th:nth-of-type(10),
+        #matrixContainer td:nth-of-type(10),
+        #matrixContainer th:nth-of-type(11),
+        #matrixContainer td:nth-of-type(11) {
+            min-width: 6ch;
+            text-align: center;
+        }
 
-                /* first two columns fixed at ~8ch */
-                #buildPlanMatrixContainer table th:nth-of-type(1),
-                #buildPlanMatrixContainer table td:nth-of-type(1),
-                #buildPlanMatrixContainer table th:nth-of-type(2),
-                #buildPlanMatrixContainer table td:nth-of-type(2) {
-                    min-width: 8ch;
-                    max-width: 8ch;
-                }
+        /* 4) Allowance + totals can be a bit wider */
+        #matrixContainer .allowance-input,
+        #matrixContainer .fabric-req-cell,
+        #matrixContainer .marker-usage-cell,
+        #matrixContainer .marker-saving-cell,
+        #matrixContainer .target-length-cell {
+            min-width: 8ch;
+            text-align: right;
+        }
 
-                /* all other columns at ~5ch */
-                #buildPlanMatrixContainer table th:nth-of-type(n+3),
-                #buildPlanMatrixContainer table td:nth-of-type(n+3) {
-                    min-width: 5ch;
-                    max-width: 5ch;
-                }
+        /* 5) Header styling */
+        .table-striped thead th {
+            background-color: #f8f9fa;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(0,123,255,.05);
+        }
+
     </style>
 }
 <h2>@ViewData["Title"]</h2>
 
+<div asp-validation-summary="All" class="text-danger mb-3"></div>
+@* <div class="alert alert-info">
+    <p>
+        This form allows you to create a marker plan by selecting a style, associated sales orders (SO), and dockets.
+        After selection, a matrix will be generated where you can input marker details.
+    </p>
+    <p>
+        The matrix will automatically calculate fabric requirements, marker usage, savings, and target lengths based on your inputs.
+    </p>
+    <p>
+        Use the "Reset Table" button to clear the matrix inputs and computed cells, or "Reset All" to clear the entire form.
+    </p>
+</div> *@
+
+@* 1) ValidationSummary for DataAnnotations *@
+<div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+@* 2) Explicit list of binding/conversion errors *@
+@if (ViewBag.BindErrors is List<dynamic> errs && errs.Any())
+{
+    <div class="alert alert-danger">
+        <strong>Binding errors:</strong>
+        <ul>
+            @foreach (var e in errs)
+            {
+                <li>@e.Field: @e.Message</li>
+            }
+        </ul>
+    </div>
+}
 <form id="planForm" class="mb-4" method="post" asp-action="CreateMarkerPlan">
     <div class="row g-3 mb-3">
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
             <label for="styleInput" class="form-label">Select Style</label>
 
             <!-- free-text input that shows matching options from the datalist -->
@@ -59,7 +113,7 @@
             </datalist>
         </div>
 
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
             <label for="soSelect" class="form-label">Select SO(s)</label>
             <select id="soSelect"
                     name="SelectedSO"
@@ -69,7 +123,7 @@
             </select>
         </div>
 
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
             <label for="docketSelect" class="form-label">Select Docket(s)</label>
             <select id="docketSelect"
                     name="SelectedDocket"
@@ -78,13 +132,51 @@
                     disabled>
             </select>
         </div>
+        <div class="col-12 col-md-3">
+            <div class="col-12 col-md-12">
+                <button type="button"
+                        id="resetTableBtn"
+                        class="btn btn-secondary w-100">
+                    Reset Table
+                </button>
+            </div>
+            <br />
+            <div class="col-12 col-md-12">
+                <button type="button"
+                        id="resetAllBtn"
+                        class="btn btn-warning w-100">
+                    Reset All
+                </button>
+            </div>
+            <br />
+            <div class="col-12 col-md-12">
+                <button type="submit" class="btn btn-primary w-100">Save Plan</button>
+            </div>
+
+        </div>
     </div>
+
+    @* Mirror selected arrays as hidden inputs for post-back *@
+    @if (Model.SelectedSO != null)
+    {
+        foreach (var so in Model.SelectedSO)
+        {
+            <input type="hidden" name="SelectedSO" value="@so" />
+        }
+    }
+    @if (Model.SelectedDocket != null)
+    {
+        foreach (var d in Model.SelectedDocket)
+        {
+            <input type="hidden" name="SelectedDocket" value="@d" />
+        }
+    }
 
     <div id="matrixContainer">
         @* Partial view will be injected here *@
     </div>
 
-    <button type="submit" class="btn btn-primary">Save Plan</button>
+
 </form>
 
 @section Scripts {
@@ -92,9 +184,129 @@
         const styleEl = document.getElementById('styleInput'),
             soEl = document.getElementById('soSelect'),
             dockEl = document.getElementById('docketSelect'),
-            matrixCt = document.getElementById('matrixContainer');
+            matrixCt = document.getElementById('matrixContainer'),
+            resetTableBtn = document.getElementById('resetTableBtn'),
+            resetAllBtn = document.getElementById('resetAllBtn'),
+            formEl = document.getElementById('planForm');
 
-        // fire when the user picks from the datalist or blurs the input
+        const matrixCache = {
+            ratios: {},
+            plies: {},
+            markerNames: {},
+            lengths: {},
+            widths: {},
+            allowances: {}
+        };
+
+        function cacheMatrixValues() {
+            matrixCt.querySelectorAll('.ratio-input').forEach(input => {
+                matrixCache.ratios[`${input.dataset.docket}_${input.dataset.size}`] = input.value;
+            });
+
+            matrixCt.querySelectorAll('.plies-input').forEach(input => {
+                matrixCache.plies[input.dataset.docket] = input.value;
+            });
+
+            matrixCt.querySelectorAll('.marker-name-input').forEach(input => {
+                matrixCache.markerNames[input.dataset.docket] = input.value;
+            });
+
+            matrixCt.querySelectorAll('.marker-length-input').forEach(input => {
+                matrixCache.lengths[input.dataset.docket] = input.value;
+            });
+
+            matrixCt.querySelectorAll('.marker-width-input').forEach(input => {
+                matrixCache.widths[input.dataset.docket] = input.value;
+            });
+
+            matrixCt.querySelectorAll('.allowance-input').forEach(input => {
+                matrixCache.allowances[input.dataset.docket] = input.value;
+            });
+        }
+
+        function restoreMatrixValues() {
+            matrixCt.querySelectorAll('.ratio-input').forEach(input => {
+                const key = `${input.dataset.docket}_${input.dataset.size}`;
+                if (matrixCache.ratios[key] !== undefined) {
+                    input.value = matrixCache.ratios[key];
+                }
+            });
+
+            matrixCt.querySelectorAll('.plies-input').forEach(input => {
+                if (matrixCache.plies[input.dataset.docket] !== undefined) {
+                    input.value = matrixCache.plies[input.dataset.docket];
+                }
+            });
+
+            matrixCt.querySelectorAll('.marker-name-input').forEach(input => {
+                if (matrixCache.markerNames[input.dataset.docket] !== undefined) {
+                    input.value = matrixCache.markerNames[input.dataset.docket];
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+
+            matrixCt.querySelectorAll('.marker-length-input').forEach(input => {
+                if (matrixCache.lengths[input.dataset.docket] !== undefined) {
+                    input.value = matrixCache.lengths[input.dataset.docket];
+                }
+            });
+
+            matrixCt.querySelectorAll('.marker-width-input').forEach(input => {
+                if (matrixCache.widths[input.dataset.docket] !== undefined) {
+                    input.value = matrixCache.widths[input.dataset.docket];
+                }
+            });
+
+            matrixCt.querySelectorAll('.allowance-input').forEach(input => {
+                if (matrixCache.allowances[input.dataset.docket] !== undefined) {
+                    input.value = matrixCache.allowances[input.dataset.docket];
+                }
+            });
+        }
+
+        function clearMatrixCache() {
+            matrixCache.ratios = {};
+            matrixCache.plies = {};
+            matrixCache.markerNames = {};
+            matrixCache.lengths = {};
+            matrixCache.widths = {};
+            matrixCache.allowances = {};
+        }
+
+        formEl.addEventListener('submit', () => {
+            soEl.disabled = false;
+            dockEl.disabled = false;
+        });
+
+        resetTableBtn.addEventListener('click', () => {
+            matrixCt.querySelectorAll('input').forEach(i => {
+                if (i.type === 'number') i.value = 0;
+                else i.value = '';
+                i.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+
+            matrixCt.querySelectorAll('.row-total-size, .fabric-req-cell, .marker-usage-cell, .marker-saving-cell, .target-length-cell').forEach(c => c.textContent = '0');
+
+            document.getElementById('fabricTotalCell').textContent = '';
+            document.getElementById('markerSavingTotalCell').textContent = '';
+
+            buildPlanMatrixInit();
+            setupCentralCalculation();
+
+            clearMatrixCache();
+        });
+
+        resetAllBtn.addEventListener('click', () => {
+            styleEl.value = '';
+            soEl.innerHTML = '';
+            soEl.disabled = true;
+            dockEl.innerHTML = '';
+            dockEl.disabled = true;
+            matrixCt.innerHTML = '';
+
+            clearMatrixCache();
+        });
+
         styleEl.addEventListener('change', async () => {
             const style = styleEl.value;
             soEl.disabled = dockEl.disabled = true;
@@ -105,6 +317,7 @@
                 soEl.innerHTML = '<option>— choose a style —</option>';
                 return;
             }
+
             const resp = await fetch(`/Lay/GetSOsByStyle?style=${encodeURIComponent(style)}`);
             const items = await resp.json();
             soEl.innerHTML = items.map(i => `<option value="${i.value}">${i.text}</option>`).join('');
@@ -127,6 +340,8 @@
         });
 
         dockEl.addEventListener('change', async () => {
+            cacheMatrixValues();
+
             const selectedSOs = [...soEl.selectedOptions].map(o => o.value),
                 selectedDocs = [...dockEl.selectedOptions].map(o => o.value);
 
@@ -134,6 +349,7 @@
                 matrixCt.innerHTML = '';
                 return;
             }
+
             const qs = [
                 ...selectedSOs.map(s => `so=${encodeURIComponent(s)}`),
                 ...selectedDocs.map(d => `docket=${encodeURIComponent(d)}`)
@@ -145,7 +361,10 @@
             buildPlanMatrixInit();
             setupPropagation();
             setupCentralCalculation();
+
+            restoreMatrixValues();
         });
+
 
         function buildPlanMatrixInit() {
             const vmScript = document.getElementById('matrix-data'),

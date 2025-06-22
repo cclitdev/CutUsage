@@ -1,6 +1,9 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using CutUsage.Models;    // LayMaster, LayDetail, LayCreateViewModel, etc.
+using CutUsage.Models;
 
 namespace CutUsage.Controllers
 {
@@ -8,23 +11,26 @@ namespace CutUsage.Controllers
     {
         private readonly LayRepository _layRepo;
         private readonly MarkerRepository _markerRepo;
+        private readonly MarkerPlanRepository _markerPlanRepo;
 
-        public LayController(LayRepository layRepo, MarkerRepository markerRepo)
+        public LayController(
+            LayRepository layRepo,
+            MarkerRepository markerRepo,
+            MarkerPlanRepository markerPlanRepo)
         {
             _layRepo = layRepo;
             _markerRepo = markerRepo;
+            _markerPlanRepo = markerPlanRepo;
         }
 
         // GET: /Lay/Create
         [HttpGet]
         public async Task<IActionResult> Create()
         {
-            // Load raw lists into ViewData
             ViewData["Styles"] = await _layRepo.GetAllStyles();
             ViewData["Markers"] = await _markerRepo.GetAllAsync();
             ViewData["Types"] = await _layRepo.GetLayTypesAsync();
             ViewData["Tables"] = await _layRepo.GetLayTablesAsync();
-
             return View(new LayMaster());
         }
 
@@ -34,16 +40,14 @@ namespace CutUsage.Controllers
         {
             if (!ModelState.IsValid)
             {
-                // Re‐load lists on error
                 ViewData["Markers"] = await _markerRepo.GetAllAsync();
                 ViewData["Types"] = await _layRepo.GetLayTypesAsync();
                 ViewData["Tables"] = await _layRepo.GetLayTablesAsync();
                 return View(model);
             }
 
-            // Save and redirect
             await _layRepo.InsertLayMasterAsync(model);
-            return RedirectToAction("Index");  // or wherever your list lives
+            return RedirectToAction("Index");
         }
 
         // GET: /Lay
@@ -64,24 +68,15 @@ namespace CutUsage.Controllers
             ViewBag.Types = await _layRepo.GetLayTypesAsync();
             ViewBag.Tables = await _layRepo.GetLayTablesAsync();
 
-            // load assigned details, now including MaterialCode
             var details = await _layRepo.GetLayDetailsAsync(id);
 
-            // if any SOs assigned, fetch size breakdown
             if (details.Any(d => !string.IsNullOrEmpty(d.SO)))
             {
                 var soList = string.Join(",", details.Select(d => d.SO).Distinct());
                 var sizeDetails = await _layRepo.GetLaySODetailsAsync(soList);
-
-                var sizes = sizeDetails
-                                .Select(x => x.SOSize)
-                                .Distinct()
-                                .ToList();
-
-                var qtyMap = sizeDetails
-                                .GroupBy(x => x.SOSize)
-                                .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
-
+                var sizes = sizeDetails.Select(x => x.SOSize).Distinct().ToList();
+                var qtyMap = sizeDetails.GroupBy(x => x.SOSize)
+                                         .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
                 var totalQty = qtyMap.Values.Sum();
 
                 ViewBag.Sizes = sizes;
@@ -90,12 +85,10 @@ namespace CutUsage.Controllers
             }
 
             ViewBag.Dockets = await _layRepo.GetDocketsAsync(master.LayType, master.Style, master.LayID);
-            ViewBag.Details = details;  // each d now has SO, DocketNo and MaterialCode
+            ViewBag.Details = details;
 
             return View(master);
         }
-
-
 
         // GET: /Lay/Assign/11
         [HttpGet]
@@ -106,13 +99,9 @@ namespace CutUsage.Controllers
 
             var allMarkers = await _markerRepo.GetAllAsync();
             ViewBag.MarkerName = allMarkers
-                .FirstOrDefault(m => m.MarkerId == master.MarkerId)?
-                .MarkerName
-                ?? "(unknown)";
+                .FirstOrDefault(m => m.MarkerId == master.MarkerId)?.MarkerName ?? "(unknown)";
 
-            // Only need Dockets here
             ViewData["Dockets"] = await _layRepo.GetDocketsAsync(master.LayType, master.Style, master.LayID);
-
             return View(master);
         }
 
@@ -124,20 +113,16 @@ namespace CutUsage.Controllers
             if (master == null) return NotFound();
 
             var detail = new LayDetail { LayID = layID };
-
-            // if it’s a Docket‐type, selected is a DocketNo —
-            // so set SO to empty string (never null)
+            var parts = selected.Split('|');
             if (master.LayType == 1)
             {
-                var parts = selected.Split('|');
                 detail.DocketNo = parts[0];
                 detail.SO = parts[1];
             }
             else
             {
-                var parts = selected.Split('|');
                 detail.SO = parts[0];
-                detail.DocketNo = "";      // ← you can also pass empty if you prefer
+                detail.DocketNo = string.Empty;
             }
 
             await _layRepo.InsertLayDetailAsync(detail);
@@ -172,7 +157,7 @@ namespace CutUsage.Controllers
             return RedirectToAction(nameof(Details), new { id = layID });
         }
 
-        // LayController.cs
+        // POST: /Lay/SaveRollDetails
         [HttpPost, ValidateAntiForgeryToken]
         public async Task<IActionResult> SaveRollDetails(LayRollDetailsViewModel vm)
         {
@@ -181,24 +166,16 @@ namespace CutUsage.Controllers
 
             try
             {
-                // this will INSERT or UPDATE each row and return the last proc message
                 var message = await _layRepo.UpsertCutUsageValuesAsync(vm);
-
-                // store in TempData so it survives the redirect
                 TempData["CutUsageMessage"] = message;
-
-                // redirect back to the GET so the user sees the updated grid
                 return RedirectToAction(nameof(RollDetails), new { id = vm.Header.LayID });
             }
             catch (Exception ex)
             {
-                // show the error above the form
-                ModelState.AddModelError("", ex.Message);
+                ModelState.AddModelError(string.Empty, ex.Message);
                 return View("RollDetails", vm);
             }
         }
-
-
 
         // POST: /Lay/DeleteDetail
         [HttpPost, ValidateAntiForgeryToken]
@@ -213,134 +190,161 @@ namespace CutUsage.Controllers
             return RedirectToAction(nameof(Details), new { id = layID });
         }
 
-        // Controllers/LayController.cs
+        // GET: /Lay/RollDetails/5
         [HttpGet]
         public async Task<IActionResult> RollDetails(int id)
         {
             var vm = await _layRepo.GetLayRollDetailsAsync(id);
-            if (vm.Header.LayID == 0)
-                return NotFound();
-
+            if (vm.Header.LayID == 0) return NotFound();
             return View(vm);
-        }
-
-
-
-        // POST: /Lay/CreateMarkerPlan
-        [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateMarkerPlan(string Style,
-    string[] SelectedSO,      // comma-separated list of SOs
-    string[] SelectedDocket) // comma-separated list of Dockets)
-        {
-            // TODO: use Style, SelectedSO, SelectedDocket to build your marker plan
-            // e.g. var newPlanId = await _markerPlanRepo.CreateAsync(Style, SelectedSO, SelectedDocket);
-
-            // for now, just redirect back to index
-            return RedirectToAction(nameof(Index));
         }
 
         // GET: /Lay/CreateMarkerPlan
         [HttpGet]
         public async Task<IActionResult> CreateMarkerPlan()
         {
-            // on first render, just give me Styles
             ViewBag.Styles = await _layRepo.GetAllStyles();
-            return View();
+            return View(new MarkerPlanCreateViewModel());
         }
 
-        // GET: /Lay/GetSOsByStyle?style=XXXX
+        // Controllers/LayController.cs
+
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateMarkerPlan(MarkerPlanCreateViewModel vm)
+        {
+            // Step 0: basic header validation
+            if (vm.SelectedSO == null || vm.SelectedSO.Length == 0)
+                ModelState.AddModelError(nameof(vm.SelectedSO), "Please select at least one SO.");
+            if (vm.SelectedDocket == null || vm.SelectedDocket.Length == 0)
+                ModelState.AddModelError(nameof(vm.SelectedDocket), "Please select at least one Docket.");
+
+            // Step 1: re-fetch the matrix metadata
+            var soList = string.Join(",", vm.SelectedSO);
+            var sizeDetails = await _layRepo.GetLaySODetailsAsync(soList);
+            var sizes = sizeDetails.Select(x => x.SOSize).Distinct().ToList();
+            var qtyMap = sizeDetails
+                .GroupBy(x => x.SOSize)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
+            var existingMap = await _layRepo.GetExistingCutBySizeAsync(0);
+            var dockets = vm.SelectedDocket.ToList();
+            var infos = await _layRepo.GetDocketMaterialInfoAsync(dockets);
+            var matMap = infos.ToDictionary(i => i.DocketNo, i => i.MaterialCode);
+            var bomMap = infos.ToDictionary(i => i.DocketNo, i => i.BOMUsage);
+
+            // Step 2: build the Details list by pulling each input by name
+            var form = Request.Form;
+            vm.Details = new List<MarkerPlanDetailViewModel>();
+            foreach (var d in dockets)
+            {
+                // marker‐level inputs
+                var markerName = form[$"MarkerName[{d}]"].FirstOrDefault() ?? "";
+                var markerLength = decimal.TryParse(form[$"MarkerLength[{d}]"].FirstOrDefault(), out var ml) ? ml : 0m;
+                var markerWidth = decimal.TryParse(form[$"MarkerWidth[{d}]"].FirstOrDefault(), out var mw) ? mw : 0m;
+                var allowance = decimal.TryParse(form[$"Allowance[{d}]"].FirstOrDefault(), out var al) ? al : 0m;
+
+                // size‐level ratios and totals
+                foreach (var s in sizes)
+                {
+                    // ratio input: how many panels of size s in this marker
+                    var ratioKey = $"Ratios[{d}][{s}]";
+                    var ratio = int.TryParse(form[ratioKey].FirstOrDefault(), out var r) ? r : 0;
+
+                    // total‐plies input: user can override or just use sum of ratios
+                    var totalKey = $"Totals[{d}]";
+                    var totalPlies = int.TryParse(form[totalKey].FirstOrDefault(), out var t) ? t : ratio;
+
+                    // server‐side lookups
+                    var orderQty = qtyMap.GetValueOrDefault(s, 0m);
+                    var cutQty = existingMap.GetValueOrDefault(s, 0m);
+                    var matCd = matMap.GetValueOrDefault(d, "");
+                    var bomUsage = bomMap.GetValueOrDefault(d);
+
+                    // recalc everything using the user’s totalPlies
+                    var fabricReq = totalPlies * markerLength + allowance * totalPlies;
+                    var usage = orderQty > 0 ? fabricReq / orderQty : 0m;
+                    var saving = (bomUsage - usage) * orderQty;
+                    var target = orderQty * bomUsage;
+
+                    vm.Details.Add(new MarkerPlanDetailViewModel
+                    {
+                        DocketNo = d,
+                        Size = s,
+                        Qty = ratio,
+                        ExistingCutQty = cutQty,
+                        MaterialCode = matCd,
+                        BOMUsage = bomUsage,
+                        NoOfPlies = totalPlies,
+                        FabricRequirement = fabricReq,
+                        MarkerUsage = usage,
+                        MarkerSaving = saving,
+                        TargetLength = target,
+                        MarkerName = markerName,
+                        MarkerLength = markerLength,
+                        MarkerWidth = markerWidth,
+                        Allowance = allowance
+                    });
+                }
+            }
+
+            // Step 3: ensure we actually got some rows
+            if (!vm.Details.Any())
+                ModelState.AddModelError(nameof(vm.Details), "Please enter at least one size/quantity row.");
+
+            if (!ModelState.IsValid)
+            {
+                ViewBag.Styles = await _layRepo.GetAllStyles();
+                return View(vm);
+            }
+
+            // Step 4: persist
+            var newPlanId = await _markerPlanRepo.CreateAsync(vm);
+            TempData["Success"] = $"Marker plan #{newPlanId} saved.";
+            return RedirectToAction(nameof(Index));
+        }
+
+
+        // AJAX: Get SOs for a style
         [HttpGet]
         public async Task<JsonResult> GetSOsByStyle(string style)
         {
-            // you’ll need a repo method that returns List<string> of SO by style
             var soList = await _layRepo.GetSOsByStyleAsync(style);
-            // return simple value/text pairs
             return Json(soList.Select(so => new { value = so, text = so }));
         }
 
-        // GET: /Lay/GetDocketsBySO?so=YYYY
+        // AJAX: Get Dockets by SO
         [HttpGet]
         public async Task<JsonResult> GetDocketsBySO(string so)
         {
-            // reuse the proc/repo you already added above:
             var dockets = await _layRepo.GetDocketsBySOAsync(so);
-            // flatten to value/text
-            return Json(dockets
-                .Select(d => new { value = d.DocketNo, text = d.DocketNo }));
+            return Json(dockets.Select(d => new { value = d.DocketNo, text = d.DocketNo }));
         }
 
-        // GET partial: BuildPlanMatrix
+        // AJAX: Build marker-plan matrix (GET)
         [HttpGet]
-        public async Task<PartialViewResult> BuildPlanMatrix(
-            [FromQuery] string[] so,
-            [FromQuery] string[] docket)
+        public async Task<PartialViewResult> BuildPlanMatrix([FromQuery] string[] so, [FromQuery] string[] docket)
         {
-            // 1) size breakdown
+            // size breakdown
             var sizeDetails = await _layRepo.GetLaySODetailsAsync(string.Join(",", so));
             var sizes = sizeDetails.Select(x => x.SOSize).Distinct().ToList();
-            var qtyMap = sizeDetails
-                                     .GroupBy(x => x.SOSize)
-                                     .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
+            var qtyMap = sizeDetails.GroupBy(x => x.SOSize).ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
             var totalQty = qtyMap.Values.Sum();
 
-            // 2) existing cuts
-            var existingCutMap = await _layRepo.GetExistingCutBySizeAsync(0);
+            // existing cuts
+            var existingCutMap = await _markerPlanRepo.GetExistingCutBySOAsync(so);
             var existingCutTotal = existingCutMap.Values.Sum();
 
-            // 3) material & BOM info
+            // material & BOM
             var infos = await _layRepo.GetDocketMaterialInfoAsync(docket);
             var matMap = infos.ToDictionary(i => i.DocketNo, i => i.MaterialCode);
             var bomMap = infos.ToDictionary(i => i.DocketNo, i => i.BOMUsage);
 
-            // 4) build VM
             var vm = new MarkerPlanMatrixViewModel
             {
                 Sizes = sizes,
                 QtyMap = qtyMap,
                 TotalQty = totalQty,
                 ExistingCutMap = existingCutMap,
-                ExistingCutTotal = existingCutTotal,
                 Dockets = docket.ToList(),
-                MaterialCodeMap = matMap,
-                BOMUsageMap = bomMap
-            };
-
-            return PartialView("_BuildPlanMatrix", vm);
-        }
-
-        // POST: BuildPlan
-        [HttpPost]
-        public async Task<IActionResult> BuildPlan(
-            int layId,
-            [FromForm] List<string> selectedSOs,
-            [FromForm] List<string> selectedDockets)
-        {
-            // 1) size breakdown
-            var sizeDetails = await _layRepo.GetLaySODetailsAsync(string.Join(",", selectedSOs));
-            var sizes = sizeDetails.Select(x => x.SOSize).Distinct().ToList();
-            var qtyMap = sizeDetails
-                                     .GroupBy(x => x.SOSize)
-                                     .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
-            var totalQty = qtyMap.Values.Sum();
-
-            // 2) existing cuts
-            var existingCutMap = await _layRepo.GetExistingCutBySizeAsync(layId);
-            var existingCutTotal = existingCutMap.Values.Sum();
-
-            // 3) material & BOM info
-            var infos = await _layRepo.GetDocketMaterialInfoAsync(selectedDockets);
-            var matMap = infos.ToDictionary(i => i.DocketNo, i => i.MaterialCode);
-            var bomMap = infos.ToDictionary(i => i.DocketNo, i => i.BOMUsage);
-
-            // 4) build VM
-            var vm = new MarkerPlanMatrixViewModel
-            {
-                Sizes = sizes,
-                QtyMap = qtyMap,
-                TotalQty = totalQty,
-                ExistingCutMap = existingCutMap,
-                ExistingCutTotal = existingCutTotal,
-                Dockets = selectedDockets,
                 MaterialCodeMap = matMap,
                 BOMUsageMap = bomMap
             };

@@ -5,6 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 // register your two repos so they can be injected
 builder.Services.AddScoped<LayRepository>();
 builder.Services.AddScoped<MarkerRepository>();
+builder.Services.AddScoped<MarkerPlanRepository>();
 
 builder.Services.AddControllersWithViews();
 var app = builder.Build();

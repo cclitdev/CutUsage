@@ -50,6 +50,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGF5XENyZWF0ZS5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/GitRepo/CutLayUsage/Views/Lay/CreateMarkerPlan.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGF5XENyZWF0ZU1hcmtlclBsYW4uY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/GitRepo/CutLayUsage/Views/Lay/Details.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGF5XERldGFpbHMuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
@@ -60,6 +64,14 @@ build_metadata.AdditionalFiles.CssScope =
 
 [D:/GitRepo/CutLayUsage/Views/Lay/RollDetails.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGF5XFJvbGxEZXRhaWxzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/GitRepo/CutLayUsage/Views/Lay/_AssignPartial.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGF5XF9Bc3NpZ25QYXJ0aWFsLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/GitRepo/CutLayUsage/Views/Lay/_BuildPlanMatrix.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGF5XF9CdWlsZFBsYW5NYXRyaXguY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/GitRepo/CutLayUsage/Views/Marker/Create.cshtml]

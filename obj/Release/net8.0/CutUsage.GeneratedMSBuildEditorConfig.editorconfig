@@ -9,51 +9,87 @@ build_property.EnforceExtendedAnalyzerRules =
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = CutUsage
 build_property.RootNamespace = CutUsage
-build_property.ProjectDir = D:\GitRepo\CutUsage\CutUsage\
+build_property.ProjectDir = D:\GitRepo\CutLayUsage\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.RazorLangVersion = 8.0
 build_property.SupportLocalizedComponentNames = 
 build_property.GenerateRazorMetadataSourceChecksumAttributes = 
-build_property.MSBuildProjectDirectory = D:\GitRepo\CutUsage\CutUsage
+build_property.MSBuildProjectDirectory = D:\GitRepo\CutLayUsage
 build_property._RazorSourceGeneratorDebug = 
 
-[D:/GitRepo/CutUsage/CutUsage/Views/Docket/Details.cshtml]
+[D:/GitRepo/CutLayUsage/Views/Bulk/SelectLay.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQnVsa1xTZWxlY3RMYXkuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/GitRepo/CutLayUsage/Views/Docket/Details.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRG9ja2V0XERldGFpbHMuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/GitRepo/CutUsage/CutUsage/Views/Docket/SelectDocket.cshtml]
+[D:/GitRepo/CutLayUsage/Views/Docket/SelectDocket.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRG9ja2V0XFNlbGVjdERvY2tldC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/GitRepo/CutUsage/CutUsage/Views/Home/Index.cshtml]
+[D:/GitRepo/CutLayUsage/Views/Home/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxJbmRleC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/GitRepo/CutUsage/CutUsage/Views/Home/Login.cshtml]
+[D:/GitRepo/CutLayUsage/Views/Home/Login.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxMb2dpbi5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/GitRepo/CutUsage/CutUsage/Views/Home/Privacy.cshtml]
+[D:/GitRepo/CutLayUsage/Views/Home/Privacy.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxQcml2YWN5LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/GitRepo/CutUsage/CutUsage/Views/Shared/Error.cshtml]
+[D:/GitRepo/CutLayUsage/Views/Lay/Assign.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGF5XEFzc2lnbi5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/GitRepo/CutLayUsage/Views/Lay/Create.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGF5XENyZWF0ZS5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/GitRepo/CutLayUsage/Views/Lay/Details.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGF5XERldGFpbHMuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/GitRepo/CutLayUsage/Views/Lay/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGF5XEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/GitRepo/CutLayUsage/Views/Lay/RollDetails.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTGF5XFJvbGxEZXRhaWxzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/GitRepo/CutLayUsage/Views/Marker/Create.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWFya2VyXENyZWF0ZS5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/GitRepo/CutLayUsage/Views/Marker/Delete.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWFya2VyXERlbGV0ZS5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/GitRepo/CutLayUsage/Views/Marker/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWFya2VyXEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/GitRepo/CutLayUsage/Views/Shared/Error.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXEVycm9yLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/GitRepo/CutUsage/CutUsage/Views/Shared/_ValidationScriptsPartial.cshtml]
+[D:/GitRepo/CutLayUsage/Views/Shared/_ValidationScriptsPartial.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9WYWxpZGF0aW9uU2NyaXB0c1BhcnRpYWwuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/GitRepo/CutUsage/CutUsage/Views/_ViewImports.cshtml]
+[D:/GitRepo/CutLayUsage/Views/_ViewImports.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdJbXBvcnRzLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/GitRepo/CutUsage/CutUsage/Views/_ViewStart.cshtml]
+[D:/GitRepo/CutLayUsage/Views/_ViewStart.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdTdGFydC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/GitRepo/CutUsage/CutUsage/Views/Shared/_Layout.cshtml]
+[D:/GitRepo/CutLayUsage/Views/Shared/_Layout.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9MYXlvdXQuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = b-u0a0vahs04
