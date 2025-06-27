@@ -550,5 +550,32 @@ namespace CutUsage
 
             return list;
         }
+
+        public async Task<List<DocketSizeRatio>> GetDocketSizeRatiosAsync(IEnumerable<string> dockets)
+        {
+            var list = new List<DocketSizeRatio>();
+            if (!dockets.Any()) return list;
+
+            using var conn = new SqlConnection(_conn);
+            using var cmd = new SqlCommand("spCutUsage_GetDocketMaterialInfoWithSizeRation", conn)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            cmd.Parameters.AddWithValue("@Dockets", string.Join(",", dockets));
+
+            await conn.OpenAsync();
+            using var rdr = await cmd.ExecuteReaderAsync();
+            while (await rdr.ReadAsync())
+            {
+                list.Add(new DocketSizeRatio
+                {
+                    DocketNo = rdr.GetString(rdr.GetOrdinal("DocketNo")),
+                    Size = rdr.GetString(rdr.GetOrdinal("Size")),
+                    Ratio = rdr.GetInt32(rdr.GetOrdinal("Ratio"))
+                });
+            }
+            return list;
+        }
+
     }
 }

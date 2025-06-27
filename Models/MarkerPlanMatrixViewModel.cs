@@ -14,5 +14,11 @@ namespace CutUsage.Models
         // New maps for Material Code and BOM Usage per docket
         public Dictionary<string, string> MaterialCodeMap { get; set; } = new Dictionary<string, string>();
         public Dictionary<string, decimal> BOMUsageMap { get; set; } = new Dictionary<string, decimal>();
+
+        /// <summary>
+        /// [docket] → [ size → ratio ]
+        /// </summary>
+        public Dictionary<string, Dictionary<string, int>> RatioMap { get; set; }
+            = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
     }
 }

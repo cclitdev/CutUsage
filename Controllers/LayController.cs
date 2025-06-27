@@ -303,12 +303,18 @@ namespace CutUsage.Controllers
         }
 
 
-        // AJAX: Get SOs for a style
+        // GET: /Lay/GetSOsByStyle?style=ST1&style=ST2
         [HttpGet]
-        public async Task<JsonResult> GetSOsByStyle(string style)
+        public async Task<JsonResult> GetSOsByStyle([FromQuery] string[] style)
         {
-            var soList = await _layRepo.GetSOsByStyleAsync(style);
-            return Json(soList.Select(so => new { value = so, text = so }));
+            // if your repo only takes one style at a time, just loop:
+            var all = new List<string>();
+            foreach (var st in style)
+                all.AddRange(await _layRepo.GetSOsByStyleAsync(st));
+
+            var distinct = all.Distinct();
+
+            return Json(distinct.Select(so => new { value = so, text = so }));
         }
 
         // AJAX: Get Dockets by SO
@@ -333,10 +339,20 @@ namespace CutUsage.Controllers
             var existingCutMap = await _markerPlanRepo.GetExistingCutBySOAsync(so);
             var existingCutTotal = existingCutMap.Values.Sum();
 
-            // material & BOM
+            // 1) fetch material & bom as before
             var infos = await _layRepo.GetDocketMaterialInfoAsync(docket);
             var matMap = infos.ToDictionary(i => i.DocketNo, i => i.MaterialCode);
             var bomMap = infos.ToDictionary(i => i.DocketNo, i => i.BOMUsage);
+
+            // 2) **NEW**: fetch your ratios
+            var ratioList = await _layRepo.GetDocketSizeRatiosAsync(docket);
+            var ratioMap = ratioList
+                .GroupBy(r => r.DocketNo, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                   g => g.Key,
+                   g => g.ToDictionary(x => x.Size, x => x.Ratio, StringComparer.OrdinalIgnoreCase),
+                   StringComparer.OrdinalIgnoreCase
+                );
 
             var vm = new MarkerPlanMatrixViewModel
             {
@@ -346,7 +362,8 @@ namespace CutUsage.Controllers
                 ExistingCutMap = existingCutMap,
                 Dockets = docket.ToList(),
                 MaterialCodeMap = matMap,
-                BOMUsageMap = bomMap
+                BOMUsageMap = bomMap,
+                RatioMap = ratioMap      // ← set it here
             };
 
             return PartialView("_BuildPlanMatrix", vm);

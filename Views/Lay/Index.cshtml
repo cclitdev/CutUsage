@@ -5,7 +5,7 @@
 }
 
 <h2>@ViewData["Title"]</h2>
-<p><a asp-action="Create" class="btn btn-primary">New Lay</a></p>
+@* <p><a asp-action="Create" class="btn btn-primary">New Lay</a></p> *@
 
 <table class="table table-striped table-sm">
     <thead>
@@ -18,7 +18,7 @@
             <th>Date</th>
             <th>Start</th>
             <th>Complete</th>
-            <th>Actions</th>
+           @*  <th>Actions</th> *@
         </tr>
     </thead>
     <tbody>
@@ -33,9 +33,9 @@
                 <td>@(m.LayDate?.ToShortDateString() ?? "")</td>
                 <td>@(m.LayStartTime?.ToString("g") ?? "")</td>
                 <td>@(m.LayCompleteTime?.ToString("g") ?? "")</td>
-                <td>
+               @*  <td>
                     <a asp-action="Details" asp-route-id="@m.LayID">Details</a>
-                </td>
+                </td> *@
             </tr>
         }
     </tbody>

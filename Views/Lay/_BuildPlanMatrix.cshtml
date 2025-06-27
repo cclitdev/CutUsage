@@ -60,7 +60,8 @@
             </tr>
 
             <!-- One “Marker Ratio” row per docket -->
-            @foreach (var d in Model.Dockets)
+            @foreach (var d in Model.Dockets
+                      .OrderBy(d => Model.MaterialCodeMap.GetValueOrDefault(d, "")))
             {
                 <tr>
                     <td><strong>@d</strong></td>
@@ -79,7 +80,12 @@
                                    data-size="@s"
                                    data-order="@Model.QtyMap.GetValueOrDefault(s, 0m)"
                                    min="0"
-                                   value="0" />
+                                   value="@(
+            Model.RatioMap.TryGetValue(d, out var m)
+              && m.TryGetValue(s, out var r)
+              ? r
+              : 0
+          )" />
                         </td>
                     }
                     <td>
@@ -153,8 +159,9 @@
                 <td colspan="@( 3 + Model.Sizes.Count + 6 )"></td>
                 <td id="fabricTotalCell"></td>
                 @* blank for the rest *@
-                <td colspan="2"></td>
+                <td></td>
                 <td id="markerSavingTotalCell"></td>
+                <td></td>
 
             </tr>
 

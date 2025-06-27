@@ -27,7 +27,7 @@ namespace CutUsage.Models
 
     public class MarkerPlanCreateViewModel
     {
-        [Required] public string Style { get; set; } = "";
+        [Required] public string[] SelectedStyles { get; set; } = Array.Empty<string>();
         [Required, MinLength(1)] public string[] SelectedSO { get; set; } = Array.Empty<string>();
         [Required, MinLength(1)] public string[] SelectedDocket { get; set; } = Array.Empty<string>();
 

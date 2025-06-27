@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using CutUsage.Models;
@@ -14,8 +15,17 @@ namespace CutUsage
         public MarkerPlanRepository(IConfiguration cfg)
             => _conn = cfg.GetConnectionString("DefaultConnection");
 
+        /// <summary>
+        /// Creates a new marker plan and related lays and markers in the database.
+        /// Supports multiple styles by joining them into a comma-delimited string.
+        /// </summary>
         public async Task<int> CreateAsync(MarkerPlanCreateViewModel vm)
         {
+            // Join selected styles (if any) into a CSV for the stored proc
+            var styleCsv = vm.SelectedStyles != null && vm.SelectedStyles.Any()
+                ? string.Join(",", vm.SelectedStyles)
+                : string.Empty;
+
             using var conn = new SqlConnection(_conn);
             await conn.OpenAsync();
             using var tx = conn.BeginTransaction();
@@ -26,7 +36,7 @@ namespace CutUsage
                 using (var cmdHeader = new SqlCommand("spCutUsage_InsertMarkerPlan", conn, tx))
                 {
                     cmdHeader.CommandType = CommandType.StoredProcedure;
-                    cmdHeader.Parameters.AddWithValue("@Style", vm.Style);
+                    cmdHeader.Parameters.AddWithValue("@Style", styleCsv);
                     var pId = new SqlParameter("@PlanId", SqlDbType.Int)
                     {
                         Direction = ParameterDirection.Output
@@ -36,7 +46,7 @@ namespace CutUsage
                     planId = (int)pId.Value;
                 }
 
-                // 2) Insert each detail row
+                // 2) Insert each detail row for the marker plan
                 foreach (var d in vm.Details)
                 {
                     using var cmdDetail = new SqlCommand("spCutUsage_InsertMarkerPlanD", conn, tx)
@@ -62,7 +72,7 @@ namespace CutUsage
                     await cmdDetail.ExecuteNonQueryAsync();
                 }
 
-                // 3) Insert Lay and LayDetail per distinct marker
+                // 3) For each distinct marker name, create a Lay (LayM) and LayDetail (LayD)
                 var groupedByMarker = vm.Details.GroupBy(x => x.MarkerName);
                 foreach (var grp in groupedByMarker)
                 {
@@ -76,16 +86,16 @@ namespace CutUsage
                         cmdLay.Parameters.AddWithValue("@MarkerId", markerName);
                         cmdLay.Parameters.AddWithValue("@LayType", "1");
                         cmdLay.Parameters.AddWithValue("@LayTable", "1");
-                        cmdLay.Parameters.AddWithValue("@Style", vm.Style);
-                        // Proc returns NewLayID via SELECT SCOPE_IDENTITY()
+                        cmdLay.Parameters.AddWithValue("@Style", styleCsv);
+                        // stored proc returns new LayID via SELECT SCOPE_IDENTITY()
                         layId = Convert.ToInt32(await cmdLay.ExecuteScalarAsync());
                     }
 
-                    // 3b) Insert into LayDetail (LayD)
+                    // 3b) Insert into LayDetail (LayD) for each distinct docket in this marker
                     var distinctDockets = grp.Select(x => x.DocketNo).Distinct();
                     foreach (var docket in distinctDockets)
                     {
-                        // fetch SO via stored procedure spCutUsage_GetSOByDocket
+                        // retrieve SO by docket via stored proc
                         string so;
                         using (var cmdSo = new SqlCommand("spCutUsage_GetSOByDocket", conn, tx))
                         {
@@ -111,7 +121,7 @@ namespace CutUsage
                     }
                 }
 
-                // 4) Insert marker summary into MarkerM via spCutUsage_InsertMarker
+                // 4) Insert marker summary into MarkerM
                 foreach (var grp in groupedByMarker)
                 {
                     var first = grp.First();
@@ -147,7 +157,6 @@ namespace CutUsage
             if (soList == null || !soList.Any())
                 return result;
 
-            // Call stored procedure instead of inline SQL
             using var conn = new SqlConnection(_conn);
             await conn.OpenAsync();
 
@@ -155,7 +164,6 @@ namespace CutUsage
             {
                 CommandType = CommandType.StoredProcedure
             };
-            // pass the SOs as a comma-separated list
             cmd.Parameters.AddWithValue("@SOList", string.Join(",", soList));
 
             using var rdr = await cmd.ExecuteReaderAsync();
@@ -165,8 +173,8 @@ namespace CutUsage
                 var qty = rdr.GetDecimal(1);
                 result[size] = qty;
             }
+
             return result;
         }
-
     }
 }

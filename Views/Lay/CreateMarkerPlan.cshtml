@@ -1,4 +1,4 @@
-﻿@model CutUsage.Models.MarkerPlanCreateViewModel
+﻿  @model CutUsage.Models.MarkerPlanCreateViewModel
 @using Newtonsoft.Json
 @{
     ViewData["Title"] = "Create Marker Plan";
@@ -95,23 +95,26 @@
 }
 <form id="planForm" class="mb-4" method="post" asp-action="CreateMarkerPlan">
     <div class="row g-3 mb-3">
-        <div class="col-12 col-md-3">
-            <label for="styleInput" class="form-label">Select Style</label>
-
-            <!-- free-text input that shows matching options from the datalist -->
-            <input list="styleList"
-                   id="styleInput"
-                   name="Style"
-                   class="form-control"
-                   placeholder="Type or paste style…" />
-
-            <datalist id="styleList">
-                @foreach (var st in styles)
-                {
-                    <option value="@st.Style"></option>
-                }
-            </datalist>
-        </div>
+<div class="col-12 col-md-3">
+  <label for="styleSelect" class="form-label">Select Style(s)</label>
+  <select id="styleSelect"
+          name="SelectedStyles"
+          class="form-select"
+          multiple>
+    @using CutUsage.Models  @* make sure you have this *@
+@foreach (var st in (List<StyleM>)ViewBag.Styles)
+{
+    if (Model.SelectedStyles?.Contains(st.Style) == true)
+    {
+        <option value="@st.Style" selected="selected">@st.Style</option>
+    }
+    else
+    {
+        <option value="@st.Style">@st.Style</option>
+    }
+}
+  </select>
+</div>
 
         <div class="col-12 col-md-3">
             <label for="soSelect" class="form-label">Select SO(s)</label>
@@ -180,518 +183,446 @@
 </form>
 
 @section Scripts {
-    <script>
-        const styleEl = document.getElementById('styleInput'),
-            soEl = document.getElementById('soSelect'),
-            dockEl = document.getElementById('docketSelect'),
-            matrixCt = document.getElementById('matrixContainer'),
-            resetTableBtn = document.getElementById('resetTableBtn'),
-            resetAllBtn = document.getElementById('resetAllBtn'),
-            formEl = document.getElementById('planForm');
+  <script>
+    // ELEMENT REFS (note styleSelect, not styleInput)
+    const styleEl      = document.getElementById('styleSelect'),
+          soEl         = document.getElementById('soSelect'),
+          dockEl       = document.getElementById('docketSelect'),
+          matrixCt     = document.getElementById('matrixContainer'),
+          resetTableBtn = document.getElementById('resetTableBtn'),
+          resetAllBtn   = document.getElementById('resetAllBtn'),
+          formEl        = document.getElementById('planForm');
 
-        const matrixCache = {
-            ratios: {},
-            plies: {},
-            markerNames: {},
-            lengths: {},
-            widths: {},
-            allowances: {}
-        };
+    // A simple cache so we can restore inputs when the matrix re-renders
+    const matrixCache = {
+      ratios: {}, plies: {},
+      markerNames: {}, lengths: {},
+      widths: {}, allowances: {},
+      docketTotals: {}, rowTotals: {},
+      fabrics: {}, usages: {},
+      savings: {}, targets: {}
+    };
 
-        function cacheMatrixValues() {
-            matrixCt.querySelectorAll('.ratio-input').forEach(input => {
-                matrixCache.ratios[`${input.dataset.docket}_${input.dataset.size}`] = input.value;
-            });
+    function cacheMatrixValues() {
+      matrixCt.querySelectorAll('.ratio-input').forEach(i => {
+        matrixCache.ratios[`${i.dataset.docket}_${i.dataset.size}`] = i.value;
+      });
+      matrixCt.querySelectorAll('.plies-input').forEach(i => {
+        matrixCache.plies[i.dataset.docket] = i.value;
+      });
+      matrixCt.querySelectorAll('.marker-name-input').forEach(i => {
+        matrixCache.markerNames[i.dataset.docket] = i.value;
+      });
+      matrixCt.querySelectorAll('.marker-length-input').forEach(i => {
+        matrixCache.lengths[i.dataset.docket] = i.value;
+      });
+      matrixCt.querySelectorAll('.marker-width-input').forEach(i => {
+        matrixCache.widths[i.dataset.docket] = i.value;
+      });
+      matrixCt.querySelectorAll('.allowance-input').forEach(i => {
+        matrixCache.allowances[i.dataset.docket] = i.value;
+      });
+      matrixCt.querySelectorAll('.docket-total-input').forEach(i => {
+        matrixCache.docketTotals[i.dataset.docket] = i.value;
+      });
+      matrixCt.querySelectorAll('.row-total-size').forEach(c => {
+        matrixCache.rowTotals[c.dataset.docket] = c.textContent;
+      });
+      matrixCt.querySelectorAll('.fabric-req-cell').forEach(c => {
+        matrixCache.fabrics[c.dataset.docket] = c.textContent;
+      });
+      matrixCt.querySelectorAll('.marker-usage-cell').forEach(c => {
+        matrixCache.usages[c.dataset.docket] = c.textContent;
+      });
+      matrixCt.querySelectorAll('.marker-saving-cell').forEach(c => {
+        matrixCache.savings[c.dataset.docket] = c.textContent;
+      });
+      matrixCt.querySelectorAll('.target-length-cell').forEach(c => {
+        matrixCache.targets[c.dataset.docket] = c.textContent;
+      });
+    }
 
-            matrixCt.querySelectorAll('.plies-input').forEach(input => {
-                matrixCache.plies[input.dataset.docket] = input.value;
-            });
-
-            matrixCt.querySelectorAll('.marker-name-input').forEach(input => {
-                matrixCache.markerNames[input.dataset.docket] = input.value;
-            });
-
-            matrixCt.querySelectorAll('.marker-length-input').forEach(input => {
-                matrixCache.lengths[input.dataset.docket] = input.value;
-            });
-
-            matrixCt.querySelectorAll('.marker-width-input').forEach(input => {
-                matrixCache.widths[input.dataset.docket] = input.value;
-            });
-
-            matrixCt.querySelectorAll('.allowance-input').forEach(input => {
-                matrixCache.allowances[input.dataset.docket] = input.value;
-            });
+    function restoreMatrixValues() {
+      matrixCt.querySelectorAll('.ratio-input').forEach(i => {
+        const key = `${i.dataset.docket}_${i.dataset.size}`;
+        if (matrixCache.ratios[key] != null) i.value = matrixCache.ratios[key];
+      });
+      matrixCt.querySelectorAll('.plies-input').forEach(i => {
+        const v = matrixCache.plies[i.dataset.docket];
+        if (v != null) i.value = v;
+      });
+      matrixCt.querySelectorAll('.marker-name-input').forEach(i => {
+        const v = matrixCache.markerNames[i.dataset.docket];
+        if (v != null) {
+          i.value = v;
+          i.dispatchEvent(new Event('input',{ bubbles:true }));
         }
+      });
+      matrixCt.querySelectorAll('.marker-length-input').forEach(i => {
+        const v = matrixCache.lengths[i.dataset.docket];
+        if (v != null) i.value = v;
+      });
+      matrixCt.querySelectorAll('.marker-width-input').forEach(i => {
+        const v = matrixCache.widths[i.dataset.docket];
+        if (v != null) i.value = v;
+      });
+      matrixCt.querySelectorAll('.allowance-input').forEach(i => {
+        const v = matrixCache.allowances[i.dataset.docket];
+        if (v != null) i.value = v;
+      });
+      matrixCt.querySelectorAll('.docket-total-input').forEach(i => {
+        const v = matrixCache.docketTotals[i.dataset.docket];
+        if (v != null) i.value = v;
+      });
+      matrixCt.querySelectorAll('.row-total-size').forEach(c => {
+        const v = matrixCache.rowTotals[c.dataset.docket];
+        if (v != null) c.textContent = v;
+      });
+      matrixCt.querySelectorAll('.fabric-req-cell').forEach(c => {
+        const v = matrixCache.fabrics[c.dataset.docket];
+        if (v != null) c.textContent = v;
+      });
+      matrixCt.querySelectorAll('.marker-usage-cell').forEach(c => {
+        const v = matrixCache.usages[c.dataset.docket];
+        if (v != null) c.textContent = v;
+      });
+      matrixCt.querySelectorAll('.marker-saving-cell').forEach(c => {
+        const v = matrixCache.savings[c.dataset.docket];
+        if (v != null) c.textContent = v;
+      });
+      matrixCt.querySelectorAll('.target-length-cell').forEach(c => {
+        const v = matrixCache.targets[c.dataset.docket];
+        if (v != null) c.textContent = v;
+      });
+    }
 
-        function restoreMatrixValues() {
-            matrixCt.querySelectorAll('.ratio-input').forEach(input => {
-                const key = `${input.dataset.docket}_${input.dataset.size}`;
-                if (matrixCache.ratios[key] !== undefined) {
-                    input.value = matrixCache.ratios[key];
-                }
-            });
+    function clearMatrixCache() {
+      Object.keys(matrixCache).forEach(k => matrixCache[k] = {});
+    }
 
-            matrixCt.querySelectorAll('.plies-input').forEach(input => {
-                if (matrixCache.plies[input.dataset.docket] !== undefined) {
-                    input.value = matrixCache.plies[input.dataset.docket];
-                }
-            });
+    // ENABLE disables on submit so your POST gets the selected SOs/dockets
+    formEl.addEventListener('submit', () => {
+      soEl.disabled   = false;
+      dockEl.disabled = false;
+    });
 
-            matrixCt.querySelectorAll('.marker-name-input').forEach(input => {
-                if (matrixCache.markerNames[input.dataset.docket] !== undefined) {
-                    input.value = matrixCache.markerNames[input.dataset.docket];
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-            });
+    // RESET BUTTONS
+    resetTableBtn.addEventListener('click', () => {
+      matrixCt.querySelectorAll('input').forEach(i => {
+        i.value = (i.type==='number' ? 0 : '');
+        i.dispatchEvent(new Event('input',{ bubbles:true }));
+      });
+      matrixCt.querySelectorAll(
+        '.row-total-size,'+
+        '.fabric-req-cell,'+
+        '.marker-usage-cell,'+
+        '.marker-saving-cell,'+
+        '.target-length-cell'
+      ).forEach(c => c.textContent = '0');
+      document.getElementById('fabricTotalCell').textContent      = '';
+      document.getElementById('markerSavingTotalCell').textContent = '';
+      buildPlanMatrixInit();
+      setupCentralCalculation();
+      clearMatrixCache();
+    });
+    resetAllBtn.addEventListener('click', () => {
+      styleEl.value = '';
+      soEl.innerHTML   = '';
+      soEl.disabled    = true;
+      dockEl.innerHTML = '';
+      dockEl.disabled  = true;
+      matrixCt.innerHTML = '';
+      clearMatrixCache();
+    });
 
-            matrixCt.querySelectorAll('.marker-length-input').forEach(input => {
-                if (matrixCache.lengths[input.dataset.docket] !== undefined) {
-                    input.value = matrixCache.lengths[input.dataset.docket];
-                }
-            });
+    // STYLE SELECT → load all selected SOs
+    styleEl.addEventListener('change', async () => {
+      const styles = [...styleEl.selectedOptions].map(o=>o.value);
+      soEl.disabled   = true;
+      dockEl.disabled = true;
+      soEl.innerHTML   = '<option>Loading…</option>';
+      dockEl.innerHTML = '';
+      if (!styles.length) {
+        soEl.innerHTML = '';
+        return;
+      }
+      const qs   = styles.map(s=>`style=${encodeURIComponent(s)}`).join('&');
+      const resp = await fetch(`/Lay/GetSOsByStyle?${qs}`);
+      const items= await resp.json();
+      soEl.innerHTML  = items.map(i=>`<option value="${i.value}">${i.text}</option>`).join('');
+      soEl.disabled   = false;
+    });
 
-            matrixCt.querySelectorAll('.marker-width-input').forEach(input => {
-                if (matrixCache.widths[input.dataset.docket] !== undefined) {
-                    input.value = matrixCache.widths[input.dataset.docket];
-                }
-            });
+    // SO SELECT → load dockets (and remember any you’d already picked)
+    soEl.addEventListener('change', async () => {
+      const prev = [...dockEl.selectedOptions].map(o=>o.value);
+      dockEl.disabled   = true;
+      dockEl.innerHTML = '<option>Loading…</option>';
+      const selectedSOs = [...soEl.selectedOptions].map(o=>o.value);
+      if (!selectedSOs.length) {
+        dockEl.innerHTML = '';
+        return;
+      }
+      const qs   = selectedSOs.map(s=>`so=${encodeURIComponent(s)}`).join('&');
+      const resp = await fetch(`/Lay/GetDocketsBySO?${qs}`);
+      const items= await resp.json();
+      dockEl.innerHTML = items.map(i=>`<option value="${i.value}">${i.text}</option>`).join('');
+      dockEl.disabled   = false;
+      // restore any old picks
+      prev.forEach(v => {
+        const opt = dockEl.querySelector(`option[value="${v}"]`);
+        if (opt) opt.selected = true;
+      });
+      // fire the matrix-load if needed
+      dockEl.dispatchEvent(new Event('change',{ bubbles:true }));
+    });
 
-            matrixCt.querySelectorAll('.allowance-input').forEach(input => {
-                if (matrixCache.allowances[input.dataset.docket] !== undefined) {
-                    input.value = matrixCache.allowances[input.dataset.docket];
-                }
-            });
-        }
+    // DOCKET SELECT → render your partial and re-bind everything
+    dockEl.addEventListener('change', async () => {
+      cacheMatrixValues();
+      const sos    = [...soEl.selectedOptions].map(o=>o.value),
+            docs   = [...dockEl.selectedOptions].map(o=>o.value);
+      if (!docs.length) {
+        matrixCt.innerHTML = '';
+        return;
+      }
+      const qs = [
+        ...sos.map(s=>`so=${encodeURIComponent(s)}`),
+        ...docs.map(d=>`docket=${encodeURIComponent(d)}`)
+      ].join('&');
+      const resp = await fetch(`/Lay/BuildPlanMatrix?${qs}`);
+      matrixCt.innerHTML = await resp.text();
+      restoreMatrixValues();
+      buildPlanMatrixInit();
+      setupPropagation();
+      setupCentralCalculation();
+    });
 
-        function clearMatrixCache() {
-            matrixCache.ratios = {};
-            matrixCache.plies = {};
-            matrixCache.markerNames = {};
-            matrixCache.lengths = {};
-            matrixCache.widths = {};
-            matrixCache.allowances = {};
-        }
+    // BUILD PLAN MATRIX — tracks ratios & plies, updates totals
+    function buildPlanMatrixInit() {
+      const vmScript   = document.getElementById('matrix-data'),
+            vm         = vmScript ? JSON.parse(vmScript.textContent) 
+                                 : { Sizes:[], QtyMap:{}, ExistingCut:{} },
+            sizes      = vm.Sizes,
+            orderMap   = vm.QtyMap,
+            existingMap= vm.ExistingCut;
 
-        formEl.addEventListener('submit', () => {
-            soEl.disabled = false;
-            dockEl.disabled = false;
+      function recalc() {
+        let totalCalc=0, totalRemain=0;
+        const ratios={}, plies={};
+        document.querySelectorAll('.ratio-input').forEach(i=>{
+          const d=i.dataset.docket, s=i.dataset.size, v=parseInt(i.value,10)||0;
+          if(!ratios[d]) ratios[d]={};
+          ratios[d][s]=v;
         });
-
-        resetTableBtn.addEventListener('click', () => {
-            matrixCt.querySelectorAll('input').forEach(i => {
-                if (i.type === 'number') i.value = 0;
-                else i.value = '';
-                i.dispatchEvent(new Event('input', { bubbles: true }));
-            });
-
-            matrixCt.querySelectorAll('.row-total-size, .fabric-req-cell, .marker-usage-cell, .marker-saving-cell, .target-length-cell').forEach(c => c.textContent = '0');
-
-            document.getElementById('fabricTotalCell').textContent = '';
-            document.getElementById('markerSavingTotalCell').textContent = '';
-
-            buildPlanMatrixInit();
-            setupCentralCalculation();
-
-            clearMatrixCache();
+        document.querySelectorAll('.plies-input').forEach(i=>{
+          plies[i.dataset.docket]=parseInt(i.value,10)||0;
         });
-
-        resetAllBtn.addEventListener('click', () => {
-            styleEl.value = '';
-            soEl.innerHTML = '';
-            soEl.disabled = true;
-            dockEl.innerHTML = '';
-            dockEl.disabled = true;
-            matrixCt.innerHTML = '';
-
-            clearMatrixCache();
+        sizes.forEach(s=>{
+          const ord = orderMap[s]||0,
+                cut = existingMap[s]||0,
+                used= Object.entries(ratios).reduce(
+                   (sum,[d,map])=>sum + (map[s]||0)*(plies[d]||0),0),
+                remain = ord - cut - used;
+          document.getElementById(`calcQty_${s}`).textContent = used;
+          const remEl = document.getElementById(`remainQty_${s}`);
+          remEl.textContent = remain;
+          remEl.style.color = remain>=0?'green':'red';
+          totalCalc += used;
+          totalRemain += remain;
         });
-
-        styleEl.addEventListener('change', async () => {
-            const style = styleEl.value;
-            soEl.disabled = dockEl.disabled = true;
-            soEl.innerHTML = '<option>Loading…</option>';
-            dockEl.innerHTML = '';
-
-            if (!style) {
-                soEl.innerHTML = '<option>— choose a style —</option>';
-                return;
-            }
-
-            const resp = await fetch(`/Lay/GetSOsByStyle?style=${encodeURIComponent(style)}`);
-            const items = await resp.json();
-            soEl.innerHTML = items.map(i => `<option value="${i.value}">${i.text}</option>`).join('');
-            soEl.disabled = false;
+        document.getElementById('calcQtyTotal').textContent = totalCalc;
+        const remTotEl = document.getElementById('remainQtyTotal');
+        remTotEl.textContent = totalRemain;
+        remTotEl.style.color = totalRemain>=0?'green':'red';
+        // row‐totals = sum of ratios × plies
+        Object.entries(ratios).forEach(([dock,map])=>{
+          const sumRatios = Object.values(map).reduce((a,b)=>a+b,0),
+                countPlies=plies[dock]||0,
+                rowTotal  = sumRatios*countPlies,
+                cell      = document.querySelector(`.row-total-size[data-docket="${dock}"]`);
+          if(cell) cell.textContent = rowTotal;
         });
+      }
+      document.querySelectorAll('.ratio-input, .plies-input')
+              .forEach(i=>i.addEventListener('input', recalc));
+      recalc();
+    }
 
-        soEl.addEventListener('change', async () => {
-            const selectedSOs = [...soEl.selectedOptions].map(o => o.value);
-            dockEl.disabled = true;
-            dockEl.innerHTML = '<option>Loading…</option>';
-            if (!selectedSOs.length) {
-                dockEl.innerHTML = '';
-                return;
-            }
-            const qs = selectedSOs.map(s => `so=${encodeURIComponent(s)}`).join('&');
-            const resp = await fetch(`/Lay/GetDocketsBySO?${qs}`);
-            const items = await resp.json();
-            dockEl.innerHTML = items.map(i => `<option value="${i.value}">${i.text}</option>`).join('');
-            dockEl.disabled = false;
+    // PROPAGATION: “Totals” → plies, and marker‐name/size propagate length/width
+    function setupPropagation() {
+      document.querySelectorAll('.docket-total-input').forEach(i=>{
+        i.addEventListener('input', ()=>{
+          const d=i.dataset.docket,
+                p=document.querySelector(`.plies-input[data-docket="${d}"]`);
+          if(p){ p.value=i.value; p.dispatchEvent(new Event('input',{ bubbles:true })); }
         });
-
-        dockEl.addEventListener('change', async () => {
-            cacheMatrixValues();
-
-            const selectedSOs = [...soEl.selectedOptions].map(o => o.value),
-                selectedDocs = [...dockEl.selectedOptions].map(o => o.value);
-
-            if (!selectedDocs.length) {
-                matrixCt.innerHTML = '';
-                return;
+      });
+      // marker‐name → enable length/width + copy across same names…
+      document.querySelectorAll('.marker-name-input').forEach(i=>{
+        i.addEventListener('input',()=>{
+          const name=i.value.trim(), dock=i.dataset.docket,
+                lenEl=document.querySelector(`.marker-length-input[data-docket="${dock}"]`),
+                widEl=document.querySelector(`.marker-width-input[data-docket="${dock}"]`);
+          const enabled=!!name;
+          lenEl.disabled=widEl.disabled=!enabled;
+          if(!enabled){
+            lenEl.value=widEl.value=''; 
+            lenEl.dispatchEvent(new Event('input',{ bubbles:true }));
+            widEl.dispatchEvent(new Event('input',{ bubbles:true }));
+            return;
+          }
+          document.querySelectorAll('.marker-name-input').forEach(o=>{
+            if(o!==i && o.value.trim()===name){
+              const od=o.dataset.docket,
+                    srcLen=document.querySelector(`.marker-length-input[data-docket="${od}"]`).value,
+                    srcWid=document.querySelector(`.marker-width-input[data-docket="${od}"]`).value;
+              if(srcLen||srcWid){
+                lenEl.value=srcLen; widEl.value=srcWid;
+                lenEl.dispatchEvent(new Event('input',{ bubbles:true }));
+                widEl.dispatchEvent(new Event('input',{ bubbles:true }));
+              }
             }
-
-            const qs = [
-                ...selectedSOs.map(s => `so=${encodeURIComponent(s)}`),
-                ...selectedDocs.map(d => `docket=${encodeURIComponent(d)}`)
-            ].join('&');
-
-            const resp = await fetch(`/Lay/BuildPlanMatrix?${qs}`);
-            matrixCt.innerHTML = await resp.text();
-
-            buildPlanMatrixInit();
-            setupPropagation();
-            setupCentralCalculation();
-
-            restoreMatrixValues();
+          });
         });
-
-
-        function buildPlanMatrixInit() {
-            const vmScript = document.getElementById('matrix-data'),
-                vm = vmScript
-                    ? JSON.parse(vmScript.textContent)
-                    : { Sizes: [], QtyMap: {}, ExistingCut: {} },
-                sizes = vm.Sizes,
-                orderMap = vm.QtyMap,
-                existingMap = vm.ExistingCut;
-
-            function recalc() {
-                let totalCalc = 0,
-                    totalRemain = 0;
-                const ratios = {}, plies = {};
-
-                document.querySelectorAll('.ratio-input').forEach(i => {
-                    const d = i.dataset.docket,
-                        s = i.dataset.size,
-                        v = parseInt(i.value, 10) || 0;
-                    if (!ratios[d]) ratios[d] = {};
-                    ratios[d][s] = v;
-
-                });
-
-                document.querySelectorAll('.plies-input').forEach(i => {
-                    plies[i.dataset.docket] = parseInt(i.value, 10) || 0;
-                });
-
-                sizes.forEach(s => {
-                    const ord = orderMap[s] || 0,
-                        cut = existingMap[s] || 0,
-                        used = Object.entries(ratios).reduce((sum, [d, map]) =>
-                            sum + (map[s] || 0) * (plies[d] || 0), 0),
-                        remain = ord - cut - used;
-
-                    document.getElementById(`calcQty_${s}`).textContent = used;
-                    const remEl = document.getElementById(`remainQty_${s}`);
-                    remEl.textContent = remain;
-                    remEl.style.color = remain >= 0 ? 'green' : 'red';
-
-                    totalCalc += used;
-                    totalRemain += remain;
-                });
-
-                document.getElementById('calcQtyTotal').textContent = totalCalc;
-                const remTotEl = document.getElementById('remainQtyTotal');
-                remTotEl.textContent = totalRemain;
-                remTotEl.style.color = totalRemain >= 0 ? 'green' : 'red';
-
-                // ----- NEW: compute & display row-level size totals -----
-                Object.keys(ratios).forEach(dock => {
-                    const sum = Object.values(ratios[dock]).reduce((a, b) => a + b, 0);
-                    const cell = document.querySelector(
-                        `.row-total-size[data-docket="${dock}"]`
-                    );
-                    if (cell) cell.textContent = sum;
-                });
+      });
+      // length & width true-user-input propagation
+      document.querySelectorAll('.marker-length-input').forEach(i=>{
+        i.addEventListener('input',e=>{
+          if(!e.isTrusted) return;
+          const dock=i.dataset.docket,
+                name=document.querySelector(`.marker-name-input[data-docket="${dock}"]`).value.trim(),
+                val=i.value;
+          if(!name) return;
+          document.querySelectorAll('.marker-length-input').forEach(o=>{
+            const od=o.dataset.docket,
+                  on=document.querySelector(`.marker-name-input[data-docket="${od}"]`).value.trim();
+            if(od!==dock && on===name){
+              o.value=val;
+              o.dispatchEvent(new Event('input',{ bubbles:true }));
             }
-
-            document.querySelectorAll('.ratio-input, .plies-input')
-                .forEach(i => i.addEventListener('input', recalc));
-            recalc();
-        }
-
-        function setupPropagation() {
-            // Total → plies → recalc
-            document.querySelectorAll('.docket-total-input').forEach(input => {
-                input.addEventListener('input', () => {
-                    const d = input.dataset.docket;
-                    const p = document.querySelector(`.plies-input[data-docket="${d}"]`);
-                    if (p) {
-                        p.value = input.value;
-                        p.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-                });
-            });
-
-            // marker-name → enable + copy length/width + dispatch
-            document.querySelectorAll('.marker-name-input').forEach(input => {
-                input.addEventListener('input', () => {
-                    const name = input.value.trim(),
-                        dock = input.dataset.docket,
-                        lenEl = document.querySelector(`.marker-length-input[data-docket="${dock}"]`),
-                        widEl = document.querySelector(`.marker-width-input[data-docket="${dock}"]`);
-
-                    // enable/disable length & width
-                    const enabled = name !== '';
-                    lenEl.disabled = !enabled;
-                    widEl.disabled = !enabled;
-
-                    if (!enabled) {
-                        lenEl.value = '';
-                        widEl.value = '';
-                        lenEl.dispatchEvent(new Event('input', { bubbles: true }));
-                        widEl.dispatchEvent(new Event('input', { bubbles: true }));
-                        return;
-                    }
-
-                    // copy from any other row with same name
-                    document.querySelectorAll('.marker-name-input').forEach(other => {
-                        if (other.dataset.docket !== dock && other.value.trim() === name) {
-                            const od = other.dataset.docket,
-                                srcLen = document.querySelector(`.marker-length-input[data-docket="${od}"]`).value,
-                                srcWid = document.querySelector(`.marker-width-input[data-docket="${od}"]`).value;
-                            if (srcLen || srcWid) {
-                                lenEl.value = srcLen;
-                                widEl.value = srcWid;
-                                lenEl.dispatchEvent(new Event('input', { bubbles: true }));
-                                widEl.dispatchEvent(new Event('input', { bubbles: true }));
-                            }
-                        }
-                    });
-                });
-            });
-
-            // length propagation + dispatch
-            document.querySelectorAll('.marker-length-input').forEach(input => {
-                input.addEventListener('input', e => {
-                    // ← only run on true user input
-                    if (!e.isTrusted) return;
-
-                    const dock = input.dataset.docket,
-                        val = input.value,
-                        name = document.querySelector(
-                            `.marker-name-input[data-docket="${dock}"]`
-                        ).value.trim();
-                    if (!name) return;
-
-                    document.querySelectorAll('.marker-length-input').forEach(other => {
-                        const od = other.dataset.docket,
-                            on = document.querySelector(
-                                `.marker-name-input[data-docket="${od}"]`
-                            ).value.trim();
-                        if (od !== dock && on === name) {
-                            other.value = val;
-                            // this synthetic event will have isTrusted === false
-                            other.dispatchEvent(new Event('input', { bubbles: true }));
-                        }
-                    });
-                });
-            });
-
-            // width propagation + dispatch
-            document.querySelectorAll('.marker-width-input').forEach(input => {
-                input.addEventListener('input', e => {
-                    if (!e.isTrusted) return;
-
-                    const dock = input.dataset.docket,
-                        val = input.value,
-                        name = document.querySelector(
-                            `.marker-name-input[data-docket="${dock}"]`
-                        ).value.trim();
-                    if (!name) return;
-
-                    document.querySelectorAll('.marker-width-input').forEach(other => {
-                        const od = other.dataset.docket,
-                            on = document.querySelector(
-                                `.marker-name-input[data-docket="${od}"]`
-                            ).value.trim();
-                        if (od !== dock && on === name) {
-                            other.value = val;
-                            other.dispatchEvent(new Event('input', { bubbles: true }));
-                        }
-                    });
-                });
-            });
-        }
-
-        function setupCentralCalculation() {
-            const vmScript = document.getElementById('matrix-data'),
-                vm = vmScript ? JSON.parse(vmScript.textContent) : { Sizes: [], QtyMap: {}, ExistingCut: {} },
-                sizes = vm.Sizes;
-
-            function recalc() {
-                let totalCalc = 0, totalRemain = 0;
-                const ratios = {}, plies = {};
-
-                document.querySelectorAll('.ratio-input').forEach(i => {
-                    const d = i.dataset.docket,
-                        s = i.dataset.size,
-                        v = parseInt(i.value, 10) || 0;
-                    if (!ratios[d]) ratios[d] = {};
-                    ratios[d][s] = v;
-                });
-
-                document.querySelectorAll('.plies-input').forEach(i => {
-                    plies[i.dataset.docket] = parseInt(i.value, 10) || 0;
-                });
-
-                sizes.forEach(s => {
-                    const ord = vm.QtyMap[s] || 0,
-                        cut = vm.ExistingCut[s] || 0,
-                        used = Object.entries(ratios).reduce((sum, [d, map]) =>
-                            sum + (map[s] || 0) * (plies[d] || 0), 0),
-                        remain = ord - cut - used;
-
-                    document.getElementById(`calcQty_${s}`).textContent = used;
-                    const remEl = document.getElementById(`remainQty_${s}`);
-                    remEl.textContent = remain;
-                    remEl.style.color = remain >= 0 ? 'green' : 'red';
-
-                    totalCalc += used;
-                    totalRemain += remain;
-                });
-
-                document.getElementById('calcQtyTotal').textContent = totalCalc;
-                const remTotEl = document.getElementById('remainQtyTotal');
-                remTotEl.textContent = totalRemain;
-                remTotEl.style.color = totalRemain >= 0 ? 'green' : 'red';
+          });
+        });
+      });
+      document.querySelectorAll('.marker-width-input').forEach(i=>{
+        i.addEventListener('input',e=>{
+          if(!e.isTrusted) return;
+          const dock=i.dataset.docket,
+                name=document.querySelector(`.marker-name-input[data-docket="${dock}"]`).value.trim(),
+                val=i.value;
+          if(!name) return;
+          document.querySelectorAll('.marker-width-input').forEach(o=>{
+            const od=o.dataset.docket,
+                  on=document.querySelector(`.marker-name-input[data-docket="${od}"]`).value.trim();
+            if(od!==dock && on===name){
+              o.value=val;
+              o.dispatchEvent(new Event('input',{ bubbles:true }));
             }
+          });
+        });
+      });
+    }
 
-            function calcFabric(dock) {
-                const len = parseFloat(document.querySelector(`.marker-length-input[data-docket="${dock}"]`).value) || 0,
-                    allow = parseFloat(document.querySelector(`.allowance-input[data-docket="${dock}"]`).value) || 0,
-                    ply = parseInt(document.querySelector(`.plies-input[data-docket="${dock}"]`).value, 10) || 0,
-                    fab = (len + allow) * ply,
-                    cell = document.querySelector(`.fabric-req-cell[data-docket="${dock}"]`);
-                if (cell) cell.textContent = fab.toFixed(3);
+    // CENTRAL CALCULATIONS: fabric requirement, usage, saving, target
+    function setupCentralCalculation() {
+      const vmScript = document.getElementById('matrix-data'),
+            vm       = vmScript ? JSON.parse(vmScript.textContent)
+                                : { Sizes: [], QtyMap:{}, ExistingCut:{} },
+            sizes    = vm.Sizes;
+
+      function recalc() {
+        // reuse the recalc from buildPlanMatrixInit for row‐totals & qty
+        buildPlanMatrixInit();
+      }
+
+      function calcFabric(dock) {
+        const len   = parseFloat(document.querySelector(`.marker-length-input[data-docket="${dock}"]`).value)||0,
+              allow = parseFloat(document.querySelector(`.allowance-input[data-docket="${dock}"]`).value)||0,
+              ply   = parseInt(document.querySelector(`.plies-input[data-docket="${dock}"]`).value,10)||0,
+              fab   = (len+allow)*ply,
+              cell  = document.querySelector(`.fabric-req-cell[data-docket="${dock}"]`);
+        if(cell) cell.textContent = fab.toFixed(3);
+      }
+      function calcUsage(dock) {
+        const fab   = parseFloat(document.querySelector(`.fabric-req-cell[data-docket="${dock}"]`).textContent)||0,
+              total = parseFloat(document.querySelector(`.row-total-size[data-docket="${dock}"]`).textContent)||0,
+              usage = total>0?fab/total:0,
+              cell  = document.querySelector(`.marker-usage-cell[data-docket="${dock}"]`);
+        if(cell) cell.textContent = usage.toFixed(3);
+      }
+      function calcSaving(dock) {
+        const bom   = parseFloat(document.querySelector(`.bom-usage-cell[data-docket="${dock}"]`).textContent)||0,
+              usage = parseFloat(document.querySelector(`.marker-usage-cell[data-docket="${dock}"]`).textContent)||0,
+              total = parseFloat(document.querySelector(`.row-total-size[data-docket="${dock}"]`).textContent)||0,
+              saving= (bom-usage)*total,
+              cell  = document.querySelector(`.marker-saving-cell[data-docket="${dock}"]`);
+        if(cell) cell.textContent = saving.toFixed(3);
             }
-
-            function calcUsage(dock) {
-                // read Fabric Requirement
-                const fab = parseFloat(
-                    document.querySelector(`.fabric-req-cell[data-docket="${dock}"]`)
-                        .textContent
-                ) || 0;
-
-                // read Total Size Count
-                const total = parseFloat(
-                    document.querySelector(`.row-total-size[data-docket="${dock}"]`)
-                        .textContent
-                ) || 0;
-
-                // compute usage
-                const usage = total > 0 ? fab / total : 0;
-
-                // write into the marker-usage-cell
-                const cell = document.querySelector(
-                    `.marker-usage-cell[data-docket="${dock}"]`
-                );
-                if (cell) cell.textContent = usage.toFixed(3);
-            }
-
-            function calcSaving(dock) {
-                const bom = parseFloat(
-                    document.querySelector(
-                        `.bom-usage-cell[data-docket="${dock}"]`
-                    ).textContent
-                ) || 0;
-
-                const usage = parseFloat(
-                    document.querySelector(
-                        `.marker-usage-cell[data-docket="${dock}"]`
-                    ).textContent
-                ) || 0;
-
-                const total = parseFloat(
-                    document.querySelector(
-                        `.row-total-size[data-docket="${dock}"]`
-                    ).textContent
-                ) || 0;
-
-                const saving = (bom - usage) * total;
-
-                const cell = document.querySelector(
-                    `.marker-saving-cell[data-docket="${dock}"]`
-                );
-                if (cell) cell.textContent = saving.toFixed(3);
-            }
-
-            /**
-        * Target Length = Total Size Count * BOM Usage
-        */
             function calcTarget(dock) {
-                const total = parseFloat(
-                    document.querySelector(`.row-total-size[data-docket="${dock}"]`)
-                        .textContent
+                const plies = parseInt(
+                    document.querySelector(`.plies-input[data-docket="${dock}"]`).value,
+                    10
                 ) || 0;
+
+                const cell = document.querySelector(`.target-length-cell[data-docket="${dock}"]`);
+                if (plies <= 0) {
+                    cell.textContent = '';
+                    return;
+                }
+
+                const sumRatios = [...document.querySelectorAll(`.ratio-input[data-docket="${dock}"]`)]
+                    .reduce((sum, inp) => sum + (parseInt(inp.value, 10) || 0), 0);
 
                 const bom = parseFloat(
-                    document.querySelector(`.bom-usage-cell[data-docket="${dock}"]`)
-                        .textContent
+                    document.querySelector(`.bom-usage-cell[data-docket="${dock}"]`).textContent
                 ) || 0;
 
-                const target = total * bom;
-
-                const cell = document.querySelector(
-                    `.target-length-cell[data-docket="${dock}"]`
-                );
-                if (cell) cell.textContent = target.toFixed(3);
+                cell.textContent = (sumRatios * bom).toFixed(3);
             }
 
-            function doAllCalculations() {
-                recalc();
-                document.querySelectorAll('.plies-input').forEach(i => {
-                    const dock = i.dataset.docket;
-                    calcFabric(dock);
-                    calcUsage(dock);
-                    calcSaving(dock);
-                    calcTarget(dock);
-                });
+      function doAllCalculations() {
+        recalc();
+        document.querySelectorAll('.plies-input').forEach(i=>{
+          const dock = i.dataset.docket;
+          calcFabric(dock);
+          calcUsage(dock);
+          calcSaving(dock);
+          calcTarget(dock);
+        });
+        // grand totals
+        let totalFab=0, totalSave=0;
+        document.querySelectorAll('.fabric-req-cell').forEach(c=> totalFab+=parseFloat(c.textContent)||0);
+        document.querySelectorAll('.marker-saving-cell').forEach(c=> totalSave+=parseFloat(c.textContent)||0);
+        const fabCell  = document.getElementById('fabricTotalCell'),
+              saveCell = document.getElementById('markerSavingTotalCell');
+        if(fabCell){ fabCell.textContent = totalFab.toFixed(3);  fabCell.style.color='blue'; }
+        if(saveCell){ saveCell.textContent= totalSave.toFixed(3); saveCell.style.color='crimson'; }
+      }
 
-                let totalFab = 0, totalSave = 0;
-                document.querySelectorAll('.fabric-req-cell')
-                    .forEach(c => totalFab += parseFloat(c.textContent) || 0);
-                document.querySelectorAll('.marker-saving-cell')
-                    .forEach(c => totalSave += parseFloat(c.textContent) || 0);
+      // wire it up
+      document.querySelectorAll('.ratio-input, .plies-input, .allowance-input, .marker-length-input')
+        .forEach(i=>i.addEventListener('input', doAllCalculations));
 
-                const fabCell = document.getElementById('fabricTotalCell'),
-                    saveCell = document.getElementById('markerSavingTotalCell');
-                if (fabCell) {
-                    fabCell.textContent = totalFab.toFixed(3);
-                    fabCell.style.color = 'blue';      // your first color
-                }
-                if (saveCell) {
-                    saveCell.textContent = totalSave.toFixed(3);
-                    saveCell.style.color = 'crimson';   // your second color
-                }
-            }
+              // ↴ ALSO: whenever a ratio changes (and plies > 0), recalc JUST that dock’s target
+                  document.querySelectorAll('.ratio-input').forEach(input => {
+                        input.addEventListener('input', () => {
+                              const dock = input.dataset.docket;
+                              const plies = parseInt(
+                                    document.querySelector(`.plies-input[data-docket="${dock}"]`).value,
+                                    10
+                                  ) || 0;
+                              if (plies > 0) {
+                                    calcTarget(dock);
+                                  }
+                            });
+                      });
 
-            document.querySelectorAll('.ratio-input, .plies-input, .allowance-input, .marker-length-input').forEach(i => {
-                i.addEventListener('input', doAllCalculations);
-            });
+      // initial run
+      doAllCalculations();
+    }
 
-            doAllCalculations();
-        }
-    </script>
+  </script>
 }
+
 
 
